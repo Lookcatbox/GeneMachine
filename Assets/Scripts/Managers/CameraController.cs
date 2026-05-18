@@ -14,6 +14,8 @@ public class CameraController : MonoBehaviour
     private Camera cam;
     private Vector3 lastMousePos;
     private bool isDragging = false;
+    private int lastScreenWidth;
+    private int lastScreenHeight;
 
     void Start()
     {
@@ -22,6 +24,7 @@ public class CameraController : MonoBehaviour
         cam.orthographic = true;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = Color.black;
+        SyncCameraAspect();
 
         // 初始位置：世界中心
         float center = SimulationConfig.EnvirSize * SimulationConfig.PixelPerEnvir / 2f;
@@ -31,9 +34,26 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
+        SyncCameraAspectIfNeeded();
         HandleZoom();
         HandlePan();
         HandleKeyboardPan();
+    }
+
+    void SyncCameraAspectIfNeeded()
+    {
+        if (Screen.width != lastScreenWidth || Screen.height != lastScreenHeight)
+            SyncCameraAspect();
+    }
+
+    void SyncCameraAspect()
+    {
+        if (cam == null) return;
+        if (Screen.width <= 0 || Screen.height <= 0) return;
+
+        cam.aspect = (float)Screen.width / Screen.height;
+        lastScreenWidth = Screen.width;
+        lastScreenHeight = Screen.height;
     }
 
     void HandleZoom()

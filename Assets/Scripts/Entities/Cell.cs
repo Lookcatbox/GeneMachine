@@ -33,10 +33,10 @@ public class Cell
         if (_energyCostCache >= 0) return _energyCostCache;
         int total = 0;
         for (int i = 1; i < MainGeneList.Length; i++)
-            if (MainGeneList[i].id != 0)
+            if (MainGeneList[i].baseId != 0)
                 total += MainGeneList[i].energyCost;
         for (int i = 1; i < SubGeneList.Length; i++)
-            if (SubGeneList[i].id != 0)
+            if (SubGeneList[i].baseId != 0)
                 total += SubGeneList[i].energyCost;
         _energyCostCache = total;
         return total;

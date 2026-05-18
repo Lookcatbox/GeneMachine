@@ -12,8 +12,8 @@ namespace Death
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针
-        private static Action<Cell>[,] ActionTable
-            = new Action<Cell>[110, SimulationConfig.GeneNum + 1];
+        private static Action<Cell, Gene>[,] ActionTable
+            = new Action<Cell, Gene>[110, SimulationConfig.GeneNum + 1];
 
         // 本行为的扳机序列独立，从1开始
         private static readonly int[] ActiveTriggers = { 1, 2, 3, 4 };
@@ -22,18 +22,18 @@ namespace Death
         {
             for (int i = 1; i < cell.MainGeneList.Length; i++)
             {
-                int geneId = cell.MainGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.MainGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
 
             for (int i = 1; i < cell.SubGeneList.Length; i++)
             {
-                int geneId = cell.SubGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.SubGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
         }
 
@@ -43,24 +43,27 @@ namespace Death
 
         // 本行为扳机1, 基因2: 温度致死
         // 环境温度超出25-30°C耐受范围时死亡
-        private static void Func_1_2(Cell cell)
+        private static void Func_1_2(Cell cell, Gene gene)
         {
             Envir env = SimulationCore.EnvirData[cell.px, cell.py];
-            if (env.Temp < 25 || env.Temp > 30)
+            int upgradeHash = Gene.GetUpgradeHash(gene.id);
+            float minTemp = SimulationCore.GetTempToleranceMinFromUpgradeHash(upgradeHash);
+            float maxTemp = SimulationCore.GetTempToleranceMaxFromUpgradeHash(upgradeHash);
+            if (env.Temp < minTemp || env.Temp > maxTemp)
                 cell.alive = false;
         }
 
         // 本行为扳机2, 基因3: 光照致死（预留）
         // 当前光照范围0-100均可存活，暂不致死
         // 后续可添加：光照为0时死亡、极端光照伤害等
-        private static void Func_2_3(Cell cell)
+        private static void Func_2_3(Cell cell, Gene gene)
         {
             // 预留位，当前不产生致死效果
         }
 
         // 本行为扳机3, 基因4: 基础寿命
         // 每回合5%几率自然死亡
-        private static void Func_3_4(Cell cell)
+        private static void Func_3_4(Cell cell, Gene gene)
         {
             if (SimulationCore.EnsureThreadRng().NextDouble() < 0.05)
                 cell.alive = false;
@@ -68,7 +71,7 @@ namespace Death
 
         // 本行为扳机4, 基因5: 拥挤
         // 周围八连通格内细胞总数超过6个时死亡
-        private static void Func_4_5(Cell cell)
+        private static void Func_4_5(Cell cell, Gene gene)
         {
             int neighborCount = SimulationCore.GetNeighborCellCount(cell.px, cell.py);
             if (neighborCount > 6)
@@ -107,6 +110,9 @@ namespace Death
         {
             var allCells = SimulationCore.AllCells;
             int count = allCells.Count;
+
+            if (count == 0)
+                return;
 
             Parallel.ForEach(Partitioner.Create(0, count), range =>
             {

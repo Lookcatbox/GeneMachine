@@ -10,25 +10,25 @@ namespace Temperature
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针
-        private static Action<Cell>[,] ActionTable
-            = new Action<Cell>[110, SimulationConfig.GeneNum + 1];
+        private static Action<Cell, Gene>[,] ActionTable
+            = new Action<Cell, Gene>[110, SimulationConfig.GeneNum + 1];
 
         private static void ExecuteTrigger(Cell cell, int triggerId)
         {
             for (int i = 1; i < cell.MainGeneList.Length; i++)
             {
-                int geneId = cell.MainGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.MainGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
 
             for (int i = 1; i < cell.SubGeneList.Length; i++)
             {
-                int geneId = cell.SubGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.SubGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
         }
 
@@ -39,10 +39,13 @@ namespace Temperature
         // 本行为扳机1, 基因2: 基础温度耐受
         // 当环境温度在耐受范围(25-30)内时，给予少量能量(适应奖励)
         // 注意：温度超标致死逻辑在 Death 命名空间中处理
-        private static void Func_1_2(Cell cell)
+        private static void Func_1_2(Cell cell, Gene gene)
         {
             Envir env = SimulationCore.EnvirData[cell.px, cell.py];
-            if (env.Temp >= 25 && env.Temp <= 30)
+            int upgradeHash = Gene.GetUpgradeHash(gene.id);
+            float minTemp = SimulationCore.GetTempToleranceMinFromUpgradeHash(upgradeHash);
+            float maxTemp = SimulationCore.GetTempToleranceMaxFromUpgradeHash(upgradeHash);
+            if (env.Temp >= minTemp && env.Temp <= maxTemp)
             {
                 cell.energy += 2;
             }
@@ -70,6 +73,9 @@ namespace Temperature
             var allCells = SimulationCore.AllCells;
             int count = allCells.Count;
             int triggerId = 1;
+
+            if (count == 0)
+                return;
 
             Parallel.ForEach(Partitioner.Create(0, count), range =>
             {

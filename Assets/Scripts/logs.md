@@ -1,5 +1,298 @@
 # 修改日志
 
+## 2026-05-14 热扩散与光照更新
+
+### 修改文件
+
+#### Core/LightUpdate.cs
+- 新增每回合光照更新：全图固定光照值（当前为50）。
+
+#### Core/HeatDiffusion.cs
+- 新增温度更新与热扩散：光照升温、地形散热、8邻域拉普拉斯扩散。
+
+#### Core/SimulationCore.cs
+- 每回合改为调用新的光照与热扩散更新，不再刷新旧气候场（旧温度生成保留初始化）。
+
+#### Core/SimulationConfig.cs
+- 新增光照固定值、升温/散热比例、扩散系数等参数。
+
+#### Entities/Envir.cs
+- `Temp` 类型调整为 `float`，用于连续温度演化。
+
+## 2026-05-14 温度流失效率调整
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 调整地形温度流失比例（陆地20%、沙地15%、水域10%）。
+- 新增温度流失效率区间（0°C=0%，30°C=100%）。
+
+#### Core/HeatDiffusion.cs
+- 温度流失改为按效率系数缩放，温度越高流失越接近配置的最大比例。
+
+## 2026-05-15 热传导效率接入
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增地形热传导效率（陆地100%、沙滩75%、水域50%）。
+
+#### Core/HeatDiffusion.cs
+- 光照升温与温度流失按热传导效率缩放，陆地逻辑作为基准。
+- 移除水域/沙滩独立流失比例，统一使用陆地基准流失再乘热传导效率。
+
+#### Core/SimulationConfig.cs
+- 删除 `HeatLossWater` / `HeatLossSand`，仅保留 `HeatLossLand` 作为基准。
+
+## 2026-05-15 温度视图随回合刷新
+
+### 修改文件
+
+#### Managers/CellRenderer.cs
+- 温度/光照视图在每回合步数变化时刷新叠加层，确保热量变化能实时显示。
+
+## 2026-05-15 温度改为开尔文内部运算
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增开尔文偏移常量，配置仍以摄氏度为基准。
+
+#### Core/SimulationCore.cs
+- 初始化完成后统一将环境温度转换为开尔文。
+- 新增摄氏度/开尔文转换工具，并将温度耐受计算改为开尔文。
+
+#### Core/HeatDiffusion.cs
+- 温度流失效率阈值改为按开尔文参与计算。
+
+#### Core/TemperatureBehavior.cs / Core/DeathBehavior.cs
+- 温度判定改为使用开尔文阈值。
+
+#### Core/EnvironmentPlayerPanelTab.cs
+- 环境格信息显示改为摄氏度。
+
+#### Managers/CellRenderer.cs
+- 温度视图渲染改为摄氏度显示。
+
+## 2026-05-15 热量参数回合尺度调整
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 按“一回合=3天、开尔文直接流失”调整：`HeatLightGainAtFull=10`，`HeatLossLand=0.02`。
+
+## 2026-05-15 光照增温与绝对零度阈值
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- `HeatLossEfficiencyTempMin` 调整为绝对零度（-273.15°C）。
+- `HeatLightGainAtFull` 提升到 18 以提高赤道温度。
+
+## 2026-05-15 温度过热与视图性能优化
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 降低 `HeatLightGainAtFull` 到 14 并提高 `HeatDiffusionStrength` 到 0.35 以降温、平滑温度断层。
+- 新增 `OverlayDownsampleFactor` 用于温度/光照叠加层降采样。
+
+#### Managers/CellRenderer.cs
+- 叠加层使用降采样纹理与复用像素缓冲，减少每回合更新成本。
+
+## 2026-05-15 温度流失比例允许超过100%
+
+### 修改文件
+
+#### Core/HeatDiffusion.cs
+- 温度流失效率不再上限封顶，可超过100%。
+
+## 2026-05-15 修正光照纬度曲线与温度下限
+
+### 修改文件
+
+#### Core/LightUpdate.cs
+- 恢复使用原始余弦曲线进行纬度光照修正（赤道100%、极地30%）。
+
+#### Core/SimulationConfig.cs
+- 移除纬度幂曲线参数，避免偏离原始余弦分布。
+
+#### Core/HeatDiffusion.cs
+- 温度流失后夹紧到绝对零度，避免出现异常大负温。
+
+## 2026-05-15 扩大温带光照曲线
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增 `LightLatitudeCurvePower`，用于控制纬度光照曲线宽度。
+
+#### Core/LightUpdate.cs
+- 纬度修正加入幂曲线，降低陡峭度以扩大温带范围。
+
+## 2026-05-15 诊断温度异常
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增温度统计调试开关与采样配置（DebugTempStatsEnabled/Interval/Stride）。
+
+#### Core/SimulationCore.cs
+- 每隔配置步数输出温度采样的最小/最大值与坐标（[DEBUG-TEMP]）。
+
+#### Core/HeatDiffusion.cs
+- 移除绝对零度夹紧，便于复现异常负温用于诊断。
+
+## 2026-05-15 纬度日照角曲线更接近真实
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增地轴倾角参数 `LightLatitudeAxialTiltDegrees`。
+
+#### Core/LightUpdate.cs
+- 纬度光照修正改为基于年均日照角（考虑地轴倾角）的近似曲线。
+
+## 2026-05-15 热辐射非线性效率曲线
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增 0°C/30°C 锚点效率与曲线幂参数（0°C=10%，30°C=100%）。
+
+#### Core/HeatDiffusion.cs
+- 温度流失效率改为分段非线性曲线，0°C以下逐步逼近0%。
+
+## 2026-05-15 热力图三色过度
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增温度视图中间色与中点位置（蓝-黄-红）。
+
+#### Managers/CellRenderer.cs
+- 温度热力图改为蓝-黄-红分段插值。
+
+## 2026-05-15 热力图六色渐变
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增蓝/青/绿/黄/橙/红六色与温度阈值配置。
+
+#### Managers/CellRenderer.cs
+- 温度热力图改为六色分段渐变（含 25-30 橙色带与 30-35 过渡）。
+
+#### Core/SimulationRenderSettingsData.cs
+- 温度视图颜色改为六色配置并纳入渲染设置哈希。
+
+## 2026-05-14 光照更新改为三维噪声切片
+
+### 修改文件
+
+#### Core/LightUpdate.cs
+- 光照更新改为三维噪声切片（z每回合递增），范围映射到0-100光照。
+
+#### Core/SimulationConfig.cs
+- 新增光照噪声参数（缩放、z步进、层数、频率倍数、权重衰减）。
+
+## 2026-05-14 光照纬度修正
+
+### 修改文件
+
+#### Core/LightUpdate.cs
+- 基于纬度加入光照修正：赤道100%、两极30%，按余弦曲线分布。
+
+#### Core/SimulationConfig.cs
+- 新增光照纬度倍率参数（极地/赤道）。
+
+## 2026-05-14 修复空细胞列表并行遍历异常
+
+### 修改文件
+
+#### Core/MultiplyBehavior.cs
+- 当 `AllCells.Count == 0` 时直接返回，避免 `Partitioner.Create(0, 0)` 抛出 `ArgumentOutOfRangeException`。
+
+#### Core/TemperatureBehavior.cs / Core/LightBehavior.cs / Core/DeathBehavior.cs
+- 同样增加空列表保护，避免并行分区创建异常。
+
+#### Core/SimulationCore.cs
+- 能量消耗并行段增加 `count > 0` 保护，避免 `Partitioner.Create(0, 0)` 异常导致计算线程终止。
+
+## 2026-05-14 安装 mattpocock/skills 全量 skills
+
+### 修改内容
+
+#### 用户级全局 skills 目录
+- 从 `https://github.com/mattpocock/skills` 下载并安装了 24 个非 `deprecated` 的 skills 到 `C:\Users\12454\.claude\skills`。
+- 安装范围包含工程类、日常协作类、杂项类、个人类和 in-progress 类 skills；`deprecated` 类未安装。
+
+## 2026-05-14 创建项目级指令文件
+
+### 修改文件
+
+#### .github/copilot-instructions.md
+- 新增项目级指令，固定四条要求：指出代码错误、记录所有修改到日志、尽量不动基础架构、Unity 操作步骤分步说明。
+
+#### Assets/Scripts/logs.md
+- 补充本次修改记录，便于后续追踪这次指令配置。
+
+## 2026-04-24 玩家操作面板与环境页
+
+### 修改文件
+
+#### Core/MainManager.cs
+- 新增右侧玩家操作面板，支持展开/折叠两种状态；展开时固定占据窗口右侧三分之一高度全屏，折叠时仅保留右侧中央的竖向梯形切换按钮。
+- 视图切换按钮改为锚定在玩家操作面板左边界，面板展开/折叠时会跟随移动。
+- 新增 100 槽位的标签页数组，并接入环境、基因、研发、种群 4 个标签页。
+- 新增鼠标悬停环境格读取、左键锁定/解锁环境格逻辑；环境页显示优先读取锁定格，否则读取当前悬停格。
+- 为避免 UI 区域误选地图环境格，新增基于 IMGUI 布局矩形的点击屏蔽判断。
+
+#### Core/PlayerPanelTabPage.cs
+- 新增玩家操作面板标签页基类与上下文结构，供后续继续扩展新的页签。
+
+#### Core/EnvironmentPlayerPanelTab.cs
+- 新增环境标签页，实现环境格属性展示。
+- 环境页当前显示：坐标、地形类型、高度、温度、光照、当前细胞数、最大容量、CellList 长度、玩家/NPC 细胞数、最高优先级，以及锁定状态提示。
+
+#### Core/GenePlayerPanelTab.cs
+- 新增基因标签页独立代码文件，作为后续扩展入口。
+
+#### Core/ResearchPlayerPanelTab.cs
+- 新增研发标签页独立代码文件，作为后续扩展入口。
+
+#### Core/PopulationPlayerPanelTab.cs
+- 新增种群标签页独立代码文件，作为后续扩展入口。
+
+## 2026-04-23 增加 3D 法线光照开关
+
+### 修改文件
+
+#### Managers/CellRenderer.cs
+- 新增 `normalLightingEnabled` 开关，允许在运行时切换地图背景的法线光照效果。
+- 背景材质参数现在会在 3D 开关变化时即时刷新，无需重建地图纹理。
+
+#### Core/MainManager.cs
+- 在右下角视图按钮下方新增 `3D` 按钮，用于打开或关闭法线贴图带来的立体光照效果。
+
+#### Shaders/HeightNormalLit.shader
+- 新增 `_LightingEnabled` 参数，使 shader 可以在“普通平面着色”和“法线光照着色”之间切换。
+
+## 2026-04-23 基于高度图生成法线贴图
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增地形法线光照参数：`TerrainNormalStrength`、`TerrainLightAmbient`、`TerrainLightDiffuse`、`TerrainLightDirection`。
+
+#### Managers/CellRenderer.cs
+- 背景渲染新增 `bgNormalTexture`，根据 `Envir.Height` 计算每个格子的法线方向。
+- 法线采样使用环绕邻格，和当前地图左右/上下连续的世界边界保持一致。
+- 背景材质从普通 `Sprites/Default` 切换为支持法线光照的自定义 shader，并在首次渲染时自动生成法线贴图。
+
+#### Shaders/HeightNormalLit.shader
+- 新增专用背景 shader：同时采样底图和法线贴图，使用固定方向光做轻量漫反射，让地形起伏更立体。
+
 ## 2026-04-22 高度视图细化与地形参数调优
 
 ### 修改文件

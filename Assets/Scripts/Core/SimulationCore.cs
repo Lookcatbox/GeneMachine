@@ -31,8 +31,18 @@ public static class SimulationCore
     public static long totalSteps = 0;
     public static int aliveCellCount = 0;
 
+    // ========== 研发系统 ==========
+    private static long researchPoints = 0;
+    private static long researchStepCounter = 0;
+    private static int lastResearchGainAmount = 0;
+    public static int TempLowUpgradeLevel = 0;
+    public static int TempHighUpgradeLevel = 0;
+
     // ========== 模拟速度 ==========
     public static int speedMultiplier = 1; // 1x = 1步/秒, 10x = 10步/秒
+    private static Vector3 lastClimateLightDirection = SimulationConfig.TerrainLightDirection;
+    private static bool climateInitialized = false;
+    private static int[,] distanceToLand;
 
     // ========== 八方向偏移 ==========
     public static readonly int[] DX = { -1, -1, -1, 0, 0, 1, 1, 1 };
@@ -42,6 +52,9 @@ public static class SimulationCore
     {
         Rng = new Random(SimulationConfig.WorldSeed);
         _rngSeedCounter = SimulationConfig.WorldSeed + 1000;
+        climateInitialized = false;
+        lastClimateLightDirection = SimulationConfig.TerrainLightDirection;
+        distanceToLand = null;
         int size = SimulationConfig.EnvirSize;
         EnvirData = new Envir[size + 2, size + 2];
         for (int x = 1; x <= size; x++)
@@ -49,13 +62,13 @@ public static class SimulationCore
             for (int y = 1; y <= size; y++)
             {
                 EnvirData[x, y] = new Envir();
-                EnvirData[x, y].Temp = 22 + (int)(6.0 * Math.Sin(Math.PI * y / size));
-                EnvirData[x, y].Light = 30 + (int)(40.0 * Math.Sin(Math.PI * x / size));
             }
         }
         AllCells.Clear();
         // 生成地形（柏林噪声 + 侵蚀 + 河流）
         TerrainGenerator.Generate(EnvirData, SimulationConfig.WorldSeed);
+        BuildDistanceToLandField();
+        RefreshEnvironmentClimateIfNeeded(true);
 
         // 从世界中心搜索最近陆地作为玩家出生点
         int cx = size / 2, cy = size / 2;
@@ -71,17 +84,72 @@ public static class SimulationCore
                     { cx = tx; cy = ty; found = true; }
                 }
         }
+        int baseMinTemp = SimulationConfig.BaseTempToleranceMin;
+        int baseMaxTemp = SimulationConfig.BaseTempToleranceMax;
         for (int i = 0; i < SimulationConfig.InitialPlayerCells; i++)
         {
-            int px = cx + Rng.Next(-5, 6);
-            int py = cy + Rng.Next(-5, 6);
-            px = Math.Max(1, Math.Min(size, px));
-            py = Math.Max(1, Math.Min(size, py));
-            if (EnvirData[px, py].Topography == 0) continue;
-            Cell cell = new Cell(px, py, true);
-            Species.InitPlayerCell(cell);
-            if (EnvirData[px, py].AddCell(cell))
-                AllCells.Add(cell);
+            bool placed = false;
+            int px = cx;
+            int py = cy;
+
+            for (int attempt = 0; attempt < 40; attempt++)
+            {
+                px = cx + Rng.Next(-6, 7);
+                py = cy + Rng.Next(-6, 7);
+                px = Math.Max(1, Math.Min(size, px));
+                py = Math.Max(1, Math.Min(size, py));
+                Envir env = EnvirData[px, py];
+                if (env.Topography == 0) continue;
+                if (env.Temp < baseMinTemp || env.Temp > baseMaxTemp) continue;
+
+                Cell cell = new Cell(px, py, true);
+                Species.InitPlayerCell(cell);
+                if (env.AddCell(cell))
+                {
+                    AllCells.Add(cell);
+                    placed = true;
+                    break;
+                }
+            }
+
+            if (!placed)
+            {
+                for (int attempt = 0; attempt < 400 && !placed; attempt++)
+                {
+                    px = Rng.Next(1, size + 1);
+                    py = Rng.Next(1, size + 1);
+                    Envir env = EnvirData[px, py];
+                    if (env.Topography == 0) continue;
+                    if (env.Temp < baseMinTemp || env.Temp > baseMaxTemp) continue;
+
+                    Cell cell = new Cell(px, py, true);
+                    Species.InitPlayerCell(cell);
+                    if (env.AddCell(cell))
+                    {
+                        AllCells.Add(cell);
+                        placed = true;
+                    }
+                }
+            }
+
+            if (!placed)
+            {
+                for (int attempt = 0; attempt < 200 && !placed; attempt++)
+                {
+                    px = Rng.Next(1, size + 1);
+                    py = Rng.Next(1, size + 1);
+                    Envir env = EnvirData[px, py];
+                    if (env.Topography == 0) continue;
+
+                    Cell cell = new Cell(px, py, true);
+                    Species.InitPlayerCell(cell);
+                    if (env.AddCell(cell))
+                    {
+                        AllCells.Add(cell);
+                        placed = true;
+                    }
+                }
+            }
         }
         for (int c = 0; c < SimulationConfig.InitialNPCClusters; c++)
         {
@@ -107,6 +175,7 @@ public static class SimulationCore
                     AllCells.Add(cell);
             }
         }
+            ConvertEnvironmentTempToKelvin();
         // 初始化各行为命名空间
         Multiply.Behavior.Init();
         Temperature.Behavior.Init();
@@ -191,6 +260,9 @@ public static class SimulationCore
 
     private static void SimulateOneStep()
     {
+        LightUpdate.Update(EnvirData);
+        HeatDiffusion.Update(EnvirData);
+
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
         // 原Sort O(N log N) 在100万细胞时约占50%时间，移除后直接翻倍
 
@@ -207,20 +279,297 @@ public static class SimulationCore
         // 能量消耗并行执行
         var allCells = AllCells;
         int count = allCells.Count;
-        Parallel.ForEach(Partitioner.Create(0, count), range =>
+        if (count > 0)
         {
-            if (ThreadRng == null)
-                ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
-            for (int idx = range.Item1; idx < range.Item2; idx++)
+            Parallel.ForEach(Partitioner.Create(0, count), range =>
             {
-                Cell cell = allCells[idx];
-                if (!cell.alive) continue;
-                cell.energy -= cell.GetTotalEnergyCost();
-                if (cell.energy <= 0) cell.alive = false;
+                if (ThreadRng == null)
+                    ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
+                for (int idx = range.Item1; idx < range.Item2; idx++)
+                {
+                    Cell cell = allCells[idx];
+                    if (!cell.alive) continue;
+                    cell.energy -= cell.GetTotalEnergyCost();
+                    if (cell.energy <= 0) cell.alive = false;
+                }
+            });
+        }
+
+        CleanupDeadCells();
+        researchStepCounter++;
+        GainResearchPoints();
+        DebugTemperatureStats(researchStepCounter);
+    }
+
+    private static void DebugTemperatureStats(long step)
+    {
+        if (!SimulationConfig.DebugTempStatsEnabled || EnvirData == null)
+            return;
+
+        int interval = Math.Max(1, SimulationConfig.DebugTempStatsInterval);
+        if (step % interval != 0)
+            return;
+
+        int size = SimulationConfig.EnvirSize;
+        int stride = Math.Max(1, SimulationConfig.DebugTempStatsStride);
+        float minTemp = float.MaxValue;
+        float maxTemp = float.MinValue;
+        int minX = 1, minY = 1, maxX = 1, maxY = 1;
+
+        for (int y = 1; y <= size; y += stride)
+        {
+            for (int x = 1; x <= size; x += stride)
+            {
+                float temp = EnvirData[x, y].Temp;
+                if (temp < minTemp)
+                {
+                    minTemp = temp;
+                    minX = x;
+                    minY = y;
+                }
+                if (temp > maxTemp)
+                {
+                    maxTemp = temp;
+                    maxX = x;
+                    maxY = y;
+                }
+            }
+        }
+
+        float minC = KelvinToCelsius(minTemp);
+        float maxC = KelvinToCelsius(maxTemp);
+        Debug.Log(string.Format(
+            "[DEBUG-TEMP] step={0} minK={1:F2} ({2},{3}) minC={4:F2} maxK={5:F2} ({6},{7}) maxC={8:F2}",
+            step, minTemp, minX, minY, minC, maxTemp, maxX, maxY, maxC));
+    }
+
+    private static void RefreshEnvironmentClimateIfNeeded(bool force)
+    {
+        Vector3 currentLightDirection = CellRenderer.GetTerrainLightDirection();
+        if (currentLightDirection.sqrMagnitude < 0.0001f)
+            currentLightDirection = SimulationConfig.TerrainLightDirection;
+        currentLightDirection = currentLightDirection.normalized;
+
+        if (!force && climateInitialized &&
+            (currentLightDirection - lastClimateLightDirection).sqrMagnitude <= 0.000001f)
+            return;
+
+        UpdateEnvironmentClimate(currentLightDirection);
+        lastClimateLightDirection = currentLightDirection;
+        climateInitialized = true;
+    }
+
+    private static void BuildDistanceToLandField()
+    {
+        int size = SimulationConfig.EnvirSize;
+        int stride = size + 2;
+        distanceToLand = new int[stride, stride];
+        Queue<int> queue = new Queue<int>();
+
+        for (int x = 1; x <= size; x++)
+        {
+            for (int y = 1; y <= size; y++)
+            {
+                int topo = EnvirData[x, y].Topography;
+                bool isLandSource = topo == 1 || topo == 2;
+                distanceToLand[x, y] = isLandSource ? 0 : -1;
+                if (isLandSource)
+                    queue.Enqueue(x * stride + y);
+            }
+        }
+
+        while (queue.Count > 0)
+        {
+            int packed = queue.Dequeue();
+            int x = packed / stride;
+            int y = packed % stride;
+            int nextDistance = distanceToLand[x, y] + 1;
+
+            int left = x == 1 ? size : x - 1;
+            int right = x == size ? 1 : x + 1;
+            int down = y == 1 ? size : y - 1;
+            int up = y == size ? 1 : y + 1;
+
+            if (distanceToLand[left, y] < 0)
+            {
+                distanceToLand[left, y] = nextDistance;
+                queue.Enqueue(left * stride + y);
+            }
+            if (distanceToLand[right, y] < 0)
+            {
+                distanceToLand[right, y] = nextDistance;
+                queue.Enqueue(right * stride + y);
+            }
+            if (distanceToLand[x, down] < 0)
+            {
+                distanceToLand[x, down] = nextDistance;
+                queue.Enqueue(x * stride + down);
+            }
+            if (distanceToLand[x, up] < 0)
+            {
+                distanceToLand[x, up] = nextDistance;
+                queue.Enqueue(x * stride + up);
+            }
+        }
+    }
+
+    private static void UpdateEnvironmentClimate(Vector3 sunDirection)
+    {
+        int size = SimulationConfig.EnvirSize;
+        float invAltitudeRange = 1f / Mathf.Max(1f, SimulationConfig.AltitudeMax - SimulationConfig.AltitudeMin);
+        float[,] temperatureField = new float[size + 2, size + 2];
+
+        Parallel.For(1, size + 1, y =>
+        {
+            float latitude01 = 1f - Mathf.Abs(((y - 1f) / Mathf.Max(1f, size - 1f)) * 2f - 1f);
+            float latitudeLight = Mathf.Lerp(
+                SimulationConfig.ClimateLatitudeLightMin,
+                SimulationConfig.ClimateLatitudeLightMax,
+                latitude01);
+            float latitudeBaseTemp = Mathf.Lerp(
+                SimulationConfig.ClimateLatitudeTempMin,
+                SimulationConfig.ClimateLatitudeTempMax,
+                latitude01);
+
+            int yDown = y == 1 ? size : y - 1;
+            int yUp = y == size ? 1 : y + 1;
+
+            for (int x = 1; x <= size; x++)
+            {
+                Envir env = EnvirData[x, y];
+                int xLeft = x == 1 ? size : x - 1;
+                int xRight = x == size ? 1 : x + 1;
+
+                float centerHeight = env.Height;
+                float leftHeight = EnvirData[xLeft, y].Height;
+                float rightHeight = EnvirData[xRight, y].Height;
+                float downHeight = EnvirData[x, yDown].Height;
+                float upHeight = EnvirData[x, yUp].Height;
+
+                float gradientX = (rightHeight - leftHeight) * 0.5f * invAltitudeRange * 10f;
+                float gradientY = (upHeight - downHeight) * 0.5f * invAltitudeRange * 10f;
+                Vector3 terrainNormal = new Vector3(-gradientX, -gradientY, 1f).normalized;
+
+                float sunExposure = Mathf.Max(0f, Vector3.Dot(terrainNormal, sunDirection));
+                float aboveSea01 = Mathf.InverseLerp(SimulationConfig.AltitudeThreshold, SimulationConfig.AltitudeMax, centerHeight);
+                bool isWater = env.Topography == 0 || env.Topography == 3 || env.Topography == 4;
+                float distanceToNearestLand01 = 0f;
+                if (distanceToLand != null)
+                    distanceToNearestLand01 = Mathf.Clamp01(distanceToLand[x, y] / SimulationConfig.ClimateOpenWaterDistanceScale);
+
+                float light01 = SimulationConfig.ClimateBaseLight
+                    + latitudeLight * SimulationConfig.ClimateLatitudeLightWeight
+                    + sunExposure * SimulationConfig.ClimateSunExposureWeight
+                    + aboveSea01 * SimulationConfig.ClimateAltitudeLightWeight
+                    + sunDirection.z * SimulationConfig.ClimateSunHeightLightWeight;
+                light01 = Mathf.Clamp01(light01);
+                env.Light = Mathf.RoundToInt(Mathf.Lerp(SimulationConfig.LightMin, SimulationConfig.LightMax, light01));
+
+                float temp = latitudeBaseTemp;
+                temp += (env.Light - SimulationConfig.DefaultLight) * SimulationConfig.ClimateLightToTempWeight;
+                temp -= aboveSea01 * (isWater
+                    ? SimulationConfig.ClimateWaterAltitudeCooling
+                    : SimulationConfig.ClimateLandAltitudeCooling);
+
+                if (isWater)
+                {
+                    float maritimeTarget = Mathf.Lerp(
+                        SimulationConfig.ClimateMaritimeTempMin,
+                        SimulationConfig.ClimateMaritimeTempMax,
+                        latitude01);
+                    maritimeTarget -= distanceToNearestLand01 * SimulationConfig.ClimateOpenWaterCoolingStrength;
+                    float maritimeBlend = Mathf.Clamp01(
+                        SimulationConfig.ClimateMaritimeBlend
+                        + distanceToNearestLand01 * SimulationConfig.ClimateOpenWaterBlendBoost);
+                    temp = Mathf.Lerp(temp, maritimeTarget, maritimeBlend);
+                }
+                else if (env.Topography == 2)
+                {
+                    float coastalTarget = Mathf.Lerp(
+                        SimulationConfig.ClimateBeachTempMin,
+                        SimulationConfig.ClimateBeachTempMax,
+                        latitude01);
+                    temp = Mathf.Lerp(temp, coastalTarget, SimulationConfig.ClimateBeachBlend);
+                }
+                else
+                {
+                    float coastalWarmth = (1f - distanceToNearestLand01) * SimulationConfig.ClimateCoastalLandWarmth;
+                    temp += coastalWarmth;
+                }
+
+                if (centerHeight < SimulationConfig.AltitudeThreshold)
+                {
+                    float underwaterDepth01 = Mathf.InverseLerp(SimulationConfig.AltitudeThreshold, SimulationConfig.AltitudeMin, centerHeight);
+                    float underwaterTarget = Mathf.Lerp(
+                        SimulationConfig.ClimateUnderwaterTempMin,
+                        SimulationConfig.ClimateUnderwaterTempMax,
+                        latitude01);
+                    temp = Mathf.Lerp(temp, underwaterTarget, underwaterDepth01 * SimulationConfig.ClimateUnderwaterBlend);
+                }
+
+                temperatureField[x, y] = Mathf.Clamp(temp, SimulationConfig.TempMin, SimulationConfig.TempMax);
             }
         });
 
-        CleanupDeadCells();
+        int smoothingPasses = Mathf.Max(0, SimulationConfig.ClimateTemperatureSmoothingPasses);
+        float smoothingStrength = Mathf.Clamp01(SimulationConfig.ClimateTemperatureSmoothingStrength);
+        if (smoothingPasses > 0 && smoothingStrength > 0f)
+        {
+            float[,] smoothedField = new float[size + 2, size + 2];
+
+            for (int pass = 0; pass < smoothingPasses; pass++)
+            {
+                Parallel.For(1, size + 1, y =>
+                {
+                    int yDown = y == 1 ? size : y - 1;
+                    int yUp = y == size ? 1 : y + 1;
+
+                    for (int x = 1; x <= size; x++)
+                    {
+                        int xLeft = x == 1 ? size : x - 1;
+                        int xRight = x == size ? 1 : x + 1;
+
+                        float center = temperatureField[x, y];
+                        float weightedAverage = (
+                            center * 4f
+                            + (temperatureField[xLeft, y] + temperatureField[xRight, y] + temperatureField[x, yDown] + temperatureField[x, yUp]) * 2f
+                            + temperatureField[xLeft, yDown]
+                            + temperatureField[xLeft, yUp]
+                            + temperatureField[xRight, yDown]
+                            + temperatureField[xRight, yUp]) / 16f;
+
+                        smoothedField[x, y] = Mathf.Lerp(center, weightedAverage, smoothingStrength);
+                    }
+                });
+
+                float[,] tempSwap = temperatureField;
+                temperatureField = smoothedField;
+                smoothedField = tempSwap;
+            }
+        }
+
+        Parallel.For(1, size + 1, y =>
+        {
+            for (int x = 1; x <= size; x++)
+            {
+                EnvirData[x, y].Temp = Mathf.RoundToInt(temperatureField[x, y]);
+            }
+        });
+    }
+
+    private static void ConvertEnvironmentTempToKelvin()
+    {
+        if (EnvirData == null) return;
+
+        int size = SimulationConfig.EnvirSize;
+        float offset = SimulationConfig.KelvinOffset;
+        for (int y = 1; y <= size; y++)
+        {
+            for (int x = 1; x <= size; x++)
+            {
+                EnvirData[x, y].Temp += offset;
+            }
+        }
     }
 
     // O(N)清理：前向压缩代替逐个RemoveAt（原为O(N²)最坏情况）
@@ -288,6 +637,164 @@ public static class SimulationCore
     {
         isRunning = false;
         simulationThread?.Join(2000);
+    }
+
+    public static void GainResearchPoints()
+    {
+        int playerCount = 0;
+        for (int i = 0; i < AllCells.Count; i++)
+        {
+            Cell cell = AllCells[i];
+            if (cell.alive && cell.isPlayer)
+                playerCount++;
+        }
+        Interlocked.Exchange(ref lastResearchGainAmount, playerCount);
+        if (playerCount > 0)
+            Interlocked.Add(ref researchPoints, playerCount);
+    }
+
+    public static bool TrySpendResearchPoints(int cost)
+    {
+        if (cost <= 0)
+            return false;
+        while (true)
+        {
+            long current = Interlocked.Read(ref researchPoints);
+            if (current < cost)
+                return false;
+            long next = current - cost;
+            if (Interlocked.CompareExchange(ref researchPoints, next, current) == current)
+                return true;
+        }
+    }
+
+    public static long GetResearchPoints()
+    {
+        return Interlocked.Read(ref researchPoints);
+    }
+
+    public static long GetResearchStepCounter()
+    {
+        return Interlocked.Read(ref researchStepCounter);
+    }
+
+    public static int GetLastResearchGainAmount()
+    {
+        return Interlocked.CompareExchange(ref lastResearchGainAmount, 0, 0);
+    }
+
+    public static float CelsiusToKelvin(float tempC)
+    {
+        return tempC + SimulationConfig.KelvinOffset;
+    }
+
+    public static float KelvinToCelsius(float tempK)
+    {
+        return tempK - SimulationConfig.KelvinOffset;
+    }
+
+    public static int GetTempUpgradeCost(int nextLevel)
+    {
+        if (nextLevel <= 0)
+            return 0;
+
+        double factor = Math.Pow(SimulationConfig.ResearchTempUpgradeGrowth, nextLevel - 1);
+        double cost = SimulationConfig.ResearchTempUpgradeBaseCost * factor;
+        return Math.Max(1, (int)Math.Round(cost));
+    }
+
+    public static int EncodeTempUpgradeHash(int lowLevel, int highLevel)
+    {
+        lowLevel = Math.Max(0, Math.Min(SimulationConfig.ResearchTempUpgradeMaxLevel, lowLevel));
+        highLevel = Math.Max(0, Math.Min(SimulationConfig.ResearchTempUpgradeMaxLevel, highLevel));
+        return (highLevel << 4) | (lowLevel & 0x0F);
+    }
+
+    public static void DecodeTempUpgradeHash(int upgradeHash, out int lowLevel, out int highLevel)
+    {
+        lowLevel = upgradeHash & 0x0F;
+        highLevel = (upgradeHash >> 4) & 0x0F;
+    }
+
+    public static float GetTempToleranceMinFromUpgradeHash(int upgradeHash)
+    {
+        DecodeTempUpgradeHash(upgradeHash, out int lowLevel, out _);
+        float tempC = SimulationConfig.BaseTempToleranceMin - lowLevel;
+        return CelsiusToKelvin(tempC);
+    }
+
+    public static float GetTempToleranceMaxFromUpgradeHash(int upgradeHash)
+    {
+        DecodeTempUpgradeHash(upgradeHash, out _, out int highLevel);
+        float tempC = SimulationConfig.BaseTempToleranceMax + highLevel;
+        return CelsiusToKelvin(tempC);
+    }
+
+    public static bool TryUpgradeTempLow()
+    {
+        if (TempLowUpgradeLevel >= SimulationConfig.ResearchTempUpgradeMaxLevel)
+            return false;
+
+        int nextLevel = TempLowUpgradeLevel + 1;
+        int cost = GetTempUpgradeCost(nextLevel);
+        if (!TrySpendResearchPoints(cost))
+            return false;
+
+        TempLowUpgradeLevel = nextLevel;
+        UpdatePlayerTempGeneHash();
+        return true;
+    }
+
+    public static bool TryUpgradeTempHigh()
+    {
+        if (TempHighUpgradeLevel >= SimulationConfig.ResearchTempUpgradeMaxLevel)
+            return false;
+
+        int nextLevel = TempHighUpgradeLevel + 1;
+        int cost = GetTempUpgradeCost(nextLevel);
+        if (!TrySpendResearchPoints(cost))
+            return false;
+
+        TempHighUpgradeLevel = nextLevel;
+        UpdatePlayerTempGeneHash();
+        return true;
+    }
+
+    private static void UpdatePlayerTempGeneHash()
+    {
+        int upgradeHash = EncodeTempUpgradeHash(TempLowUpgradeLevel, TempHighUpgradeLevel);
+        for (int i = 0; i < AllCells.Count; i++)
+        {
+            Cell cell = AllCells[i];
+            if (!cell.isPlayer)
+                continue;
+
+            bool updated = false;
+            for (int g = 1; g < cell.MainGeneList.Length; g++)
+            {
+                if (cell.MainGeneList[g].baseId != 2)
+                    continue;
+
+                int energyCost = cell.MainGeneList[g].energyCost;
+                cell.MainGeneList[g] = new Gene(2, energyCost, upgradeHash);
+                cell.InvalidateEnergyCostCache();
+                updated = true;
+                break;
+            }
+
+            if (updated)
+                continue;
+
+            for (int g = 1; g < cell.MainGeneList.Length; g++)
+            {
+                if (cell.MainGeneList[g].baseId != 0)
+                    continue;
+
+                cell.MainGeneList[g] = new Gene(2, 1, upgradeHash);
+                cell.InvalidateEnergyCostCache();
+                break;
+            }
+        }
     }
 
     public static Envir GetEnvir(int x, int y)

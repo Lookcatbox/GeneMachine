@@ -4,6 +4,9 @@ using System.Collections.Generic;
 
 public class CellRenderer : MonoBehaviour
 {
+    public static Vector3 terrainLightDirection = SimulationConfig.TerrainLightDirection;
+    private static CellRenderer instance;
+
     private Mesh quadMesh;
     private Material playerMaterial;  // 玩家细胞材质(绿)
     private Material npcMaterial;     // NPC细胞材质(棕)
@@ -30,22 +33,36 @@ public class CellRenderer : MonoBehaviour
     // 视图模式
     public enum ViewMode { Terrain = 0, Temperature = 1, Light = 2, Altitude = 3 }
     public static ViewMode currentViewMode = ViewMode.Terrain;
+    public static bool normalLightingEnabled = true;
     private ViewMode lastRenderedMode = (ViewMode)(-1);
+    private bool lastNormalLightingEnabled = true;
+    private Vector3 lastTerrainLightDirection = SimulationConfig.TerrainLightDirection;
 
     // 背景渲染
     private Texture2D bgTexture;
+    private Texture2D bgNormalTexture;
     private Material bgMaterial;
     private Mesh bgMesh;
+    private bool bgNormalDirty = true;
 
     // 叠加层（温度/光照热力图）
     private Texture2D overlayTexture;
     private Material overlayMaterial;
     private Mesh overlayMesh;
     private bool overlayDirty = true;
+    private long lastOverlayStep = -1;
+    private Color32[] overlayPixels;
+    private int overlayTextureSize;
+    private int overlayDownsampleFactor = 1;
 
     void Start()
     {
+        instance = this;
         cameraController = FindObjectOfType<CameraController>();
+        terrainLightDirection = terrainLightDirection.sqrMagnitude > 0.0001f
+            ? terrainLightDirection.normalized
+            : SimulationConfig.TerrainLightDirection;
+        lastTerrainLightDirection = terrainLightDirection;
 
         CreateCircleTexture();
         CreateQuadMesh();
@@ -139,10 +156,20 @@ public class CellRenderer : MonoBehaviour
         bgTexture.filterMode = FilterMode.Point;
         bgTexture.wrapMode = TextureWrapMode.Clamp;
 
-        Shader shader = Shader.Find("Sprites/Default");
+        bgNormalTexture = new Texture2D(size, size, TextureFormat.RGBA32, false, true);
+        bgNormalTexture.filterMode = FilterMode.Bilinear;
+        bgNormalTexture.wrapMode = TextureWrapMode.Clamp;
+
+        Shader shader = Shader.Find("Custom/HeightNormalLit");
+        if (shader == null)
+        {
+            Debug.LogWarning("HeightNormalLit shader not found, falling back to Sprites/Default.");
+            shader = Shader.Find("Sprites/Default");
+        }
         bgMaterial = new Material(shader);
         bgMaterial.mainTexture = bgTexture;
         bgMaterial.color = Color.white;
+        ApplyBackgroundLightingSettings();
 
         float worldSize = size * SimulationConfig.PixelPerEnvir;
         bgMesh = new Mesh();
@@ -164,12 +191,94 @@ public class CellRenderer : MonoBehaviour
         bgMesh.RecalculateNormals();
     }
 
+    void ApplyBackgroundLightingSettings()
+    {
+        if (bgMaterial == null) return;
+        if (bgMaterial.HasProperty("_MainTex"))
+            bgMaterial.SetTexture("_MainTex", bgTexture);
+        if (bgMaterial.HasProperty("_NormalTex"))
+            bgMaterial.SetTexture("_NormalTex", bgNormalTexture);
+        if (bgMaterial.HasProperty("_LightDir"))
+            bgMaterial.SetVector("_LightDir", terrainLightDirection);
+        if (bgMaterial.HasProperty("_AmbientStrength"))
+            bgMaterial.SetFloat("_AmbientStrength", SimulationConfig.TerrainLightAmbient);
+        if (bgMaterial.HasProperty("_DiffuseStrength"))
+            bgMaterial.SetFloat("_DiffuseStrength", SimulationConfig.TerrainLightDiffuse);
+        if (bgMaterial.HasProperty("_NormalStrength"))
+            bgMaterial.SetFloat("_NormalStrength", 1f);
+        if (bgMaterial.HasProperty("_CurvatureStrength"))
+            bgMaterial.SetFloat("_CurvatureStrength", SimulationConfig.TerrainCurvatureStrength);
+        if (bgMaterial.HasProperty("_HeightContrast"))
+            bgMaterial.SetFloat("_HeightContrast", SimulationConfig.TerrainHeightContrast);
+        if (bgMaterial.HasProperty("_HighTintStrength"))
+            bgMaterial.SetFloat("_HighTintStrength", SimulationConfig.TerrainHighTintStrength);
+        if (bgMaterial.HasProperty("_LowTintStrength"))
+            bgMaterial.SetFloat("_LowTintStrength", SimulationConfig.TerrainLowTintStrength);
+        if (bgMaterial.HasProperty("_LightingEnabled"))
+            bgMaterial.SetFloat("_LightingEnabled", normalLightingEnabled ? 1f : 0f);
+    }
+
+    public static Vector3 GetTerrainLightDirection()
+    {
+        return terrainLightDirection;
+    }
+
+    public static void SetTerrainLightDirection(Vector3 direction)
+    {
+        if (direction.sqrMagnitude < 0.0001f)
+            return;
+
+        direction = direction.normalized;
+        if (direction.z < 0.05f)
+            direction = new Vector3(direction.x, direction.y, 0.05f).normalized;
+
+        terrainLightDirection = direction;
+
+        if (instance != null)
+        {
+            instance.ApplyBackgroundLightingSettings();
+            instance.lastTerrainLightDirection = terrainLightDirection;
+        }
+    }
+
+    public static void RefreshRenderingSettings()
+    {
+        if (instance == null)
+            return;
+
+        instance.ApplyBackgroundLightingSettings();
+        instance.bgNormalDirty = true;
+        instance.overlayDirty = true;
+        instance.lastRenderedMode = (ViewMode)(-1);
+        instance.lastTerrainLightDirection = terrainLightDirection;
+    }
+
+    int WrapEnvirIndex(int value, int size)
+    {
+        if (value < 1) return value + size;
+        if (value > size) return value - size;
+        return value;
+    }
+
+    float ApplySignalDeadZone(float value, float deadZone)
+    {
+        float magnitude = Mathf.Abs(value);
+        if (magnitude <= deadZone)
+            return 0f;
+
+        float filteredMagnitude = (magnitude - deadZone) / Mathf.Max(0.0001f, 1f - deadZone);
+        return Mathf.Sign(value) * filteredMagnitude;
+    }
+
     void CreateOverlay()
     {
         int size = SimulationConfig.EnvirSize;
-        overlayTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        overlayDownsampleFactor = Mathf.Max(1, SimulationConfig.OverlayDownsampleFactor);
+        overlayTextureSize = Mathf.Max(1, size / overlayDownsampleFactor);
+        overlayTexture = new Texture2D(overlayTextureSize, overlayTextureSize, TextureFormat.RGBA32, false);
         overlayTexture.filterMode = FilterMode.Bilinear; // 虚化效果
         overlayTexture.wrapMode = TextureWrapMode.Clamp;
+        overlayPixels = new Color32[overlayTextureSize * overlayTextureSize];
 
         Shader shader = Shader.Find("Sprites/Default");
         overlayMaterial = new Material(shader);
@@ -242,6 +351,84 @@ public class CellRenderer : MonoBehaviour
 
         bgTexture.SetPixels32(pixels);
         bgTexture.Apply();
+    }
+
+    void UpdateBackgroundNormalTexture()
+    {
+        if (SimulationCore.EnvirData == null || bgNormalTexture == null) return;
+
+        int size = SimulationConfig.EnvirSize;
+        Color32[] pixels = new Color32[size * size];
+        float invAltitudeRange = 1f / Mathf.Max(1f, SimulationConfig.AltitudeMax - SimulationConfig.AltitudeMin);
+        float normalStrength = SimulationConfig.TerrainNormalStrength;
+        int slopeRadius = Mathf.Max(1, SimulationConfig.TerrainSlopeSampleRadius);
+        int macroRadius = Mathf.Max(slopeRadius + 1, SimulationConfig.TerrainMacroReliefRadius);
+        float seaLevel = SimulationConfig.AltitudeThreshold;
+
+        for (int y = 1; y <= size; y++)
+        {
+            int yDown = WrapEnvirIndex(y - slopeRadius, size);
+            int yUp = WrapEnvirIndex(y + slopeRadius, size);
+            int yFarDown = WrapEnvirIndex(y - macroRadius, size);
+            int yFarUp = WrapEnvirIndex(y + macroRadius, size);
+
+            for (int x = 1; x <= size; x++)
+            {
+                int xLeft = WrapEnvirIndex(x - slopeRadius, size);
+                int xRight = WrapEnvirIndex(x + slopeRadius, size);
+                int xFarLeft = WrapEnvirIndex(x - macroRadius, size);
+                int xFarRight = WrapEnvirIndex(x + macroRadius, size);
+
+                Envir centerEnv = SimulationCore.EnvirData[x, y];
+                float centerHeight = centerEnv.Height;
+                bool isWater = centerEnv.Topography == 0 || centerEnv.Topography == 3 || centerEnv.Topography == 4;
+                float slopeNoiseFloor = isWater
+                    ? SimulationConfig.TerrainWaterSlopeNoiseFloor
+                    : SimulationConfig.TerrainLandSlopeNoiseFloor;
+                float reliefNoiseFloor = isWater
+                    ? SimulationConfig.TerrainWaterReliefNoiseFloor
+                    : SimulationConfig.TerrainLandReliefNoiseFloor;
+
+                float leftHeight = SimulationCore.EnvirData[xLeft, y].Height;
+                float rightHeight = SimulationCore.EnvirData[xRight, y].Height;
+                float downHeight = SimulationCore.EnvirData[x, yDown].Height;
+                float upHeight = SimulationCore.EnvirData[x, yUp].Height;
+                float farLeftHeight = SimulationCore.EnvirData[xFarLeft, y].Height;
+                float farRightHeight = SimulationCore.EnvirData[xFarRight, y].Height;
+                float farDownHeight = SimulationCore.EnvirData[x, yFarDown].Height;
+                float farUpHeight = SimulationCore.EnvirData[x, yFarUp].Height;
+
+                float gradientX = ((rightHeight - leftHeight) / (2f * slopeRadius)) * invAltitudeRange * normalStrength;
+                float gradientY = ((upHeight - downHeight) / (2f * slopeRadius)) * invAltitudeRange * normalStrength;
+                gradientX = ApplySignalDeadZone(gradientX, slopeNoiseFloor);
+                gradientY = ApplySignalDeadZone(gradientY, slopeNoiseFloor);
+                Vector3 normal = new Vector3(-gradientX, -gradientY, 1f).normalized;
+
+                float nearAverage = (leftHeight + rightHeight + downHeight + upHeight) * 0.25f;
+                float farAverage = (farLeftHeight + farRightHeight + farDownHeight + farUpHeight) * 0.25f;
+                float relief = ((centerHeight - nearAverage) * 0.35f + (centerHeight - farAverage) * 0.65f) * invAltitudeRange * 10f;
+                relief = ApplySignalDeadZone(relief, reliefNoiseFloor);
+                relief = Mathf.Clamp(relief, -1f, 1f);
+
+                float signedHeight;
+                if (centerHeight >= seaLevel)
+                    signedHeight = Mathf.InverseLerp(seaLevel, SimulationConfig.AltitudeMax, centerHeight);
+                else
+                    signedHeight = -Mathf.InverseLerp(seaLevel, SimulationConfig.AltitudeMin, centerHeight);
+                signedHeight = Mathf.Sign(signedHeight) * Mathf.Pow(Mathf.Abs(signedHeight), 0.22f);
+
+                pixels[(y - 1) * size + (x - 1)] = new Color(
+                    normal.x * 0.5f + 0.5f,
+                    normal.y * 0.5f + 0.5f,
+                    signedHeight * 0.5f + 0.5f,
+                    relief * 0.5f + 0.5f);
+            }
+        }
+
+        bgNormalTexture.SetPixels32(pixels);
+        bgNormalTexture.Apply();
+        ApplyBackgroundLightingSettings();
+        bgNormalDirty = false;
     }
 
     int GetAltitudeQuantizedLevel(int height)
@@ -330,20 +517,79 @@ public class CellRenderer : MonoBehaviour
     {
         if (SimulationCore.EnvirData == null) return;
         int size = SimulationConfig.EnvirSize;
-        Color32[] pixels = new Color32[size * size];
+        int factor = Mathf.Max(1, overlayDownsampleFactor);
+        int texSize = Mathf.Max(1, overlayTextureSize);
         float overlayAlpha = SimulationConfig.OverlayAlpha;
+        Color tempBlue = SimulationConfig.TempColorBlue;
+        Color tempCyan = SimulationConfig.TempColorCyan;
+        Color tempGreen = SimulationConfig.TempColorGreen;
+        Color tempYellow = SimulationConfig.TempColorYellow;
+        Color tempOrange = SimulationConfig.TempColorOrange;
+        Color tempRed = SimulationConfig.TempColorRed;
+        float blueMax = SimulationConfig.TempColorBlueMax;
+        float cyanMax = SimulationConfig.TempColorCyanMax;
+        float greenMax = SimulationConfig.TempColorGreenMax;
+        float yellowMax = SimulationConfig.TempColorYellowMax;
+        float orangeMin = SimulationConfig.TempColorOrangeMin;
+        float orangeMax = SimulationConfig.TempColorOrangeMax;
+        float redMin = SimulationConfig.TempColorRedMin;
 
-        for (int y = 1; y <= size; y++)
+        for (int y = 0; y < texSize; y++)
         {
-            for (int x = 1; x <= size; x++)
+            int envY = 1 + y * factor + factor / 2;
+            if (envY > size) envY = size;
+            for (int x = 0; x < texSize; x++)
             {
-                Envir env = SimulationCore.EnvirData[x, y];
+                int envX = 1 + x * factor + factor / 2;
+                if (envX > size) envX = size;
+                Envir env = SimulationCore.EnvirData[envX, envY];
                 Color c;
 
                 if (currentViewMode == ViewMode.Temperature)
                 {
-                    float t = Mathf.InverseLerp(SimulationConfig.TempMin, SimulationConfig.TempMax, env.Temp);
-                    c = Color.Lerp(SimulationConfig.TempColorCold, SimulationConfig.TempColorHot, t);
+                    float tempC = SimulationCore.KelvinToCelsius(env.Temp);
+                    if (tempC <= blueMax)
+                    {
+                        c = tempBlue;
+                    }
+                    else if (tempC <= cyanMax)
+                    {
+                        float denom = Mathf.Max(0.0001f, cyanMax - blueMax);
+                        float t01 = Mathf.Clamp01((tempC - blueMax) / denom);
+                        c = Color.Lerp(tempBlue, tempCyan, t01);
+                    }
+                    else if (tempC <= greenMax)
+                    {
+                        float denom = Mathf.Max(0.0001f, greenMax - cyanMax);
+                        float t01 = Mathf.Clamp01((tempC - cyanMax) / denom);
+                        c = Color.Lerp(tempCyan, tempGreen, t01);
+                    }
+                    else if (tempC <= yellowMax)
+                    {
+                        float denom = Mathf.Max(0.0001f, yellowMax - greenMax);
+                        float t01 = Mathf.Clamp01((tempC - greenMax) / denom);
+                        c = Color.Lerp(tempGreen, tempYellow, t01);
+                    }
+                    else if (tempC <= orangeMin)
+                    {
+                        float denom = Mathf.Max(0.0001f, orangeMin - yellowMax);
+                        float t01 = Mathf.Clamp01((tempC - yellowMax) / denom);
+                        c = Color.Lerp(tempYellow, tempOrange, t01);
+                    }
+                    else if (tempC <= orangeMax)
+                    {
+                        c = tempOrange;
+                    }
+                    else if (tempC <= redMin)
+                    {
+                        float denom = Mathf.Max(0.0001f, redMin - orangeMax);
+                        float t01 = Mathf.Clamp01((tempC - orangeMax) / denom);
+                        c = Color.Lerp(tempOrange, tempRed, t01);
+                    }
+                    else
+                    {
+                        c = tempRed;
+                    }
                 }
                 else
                 {
@@ -352,11 +598,11 @@ public class CellRenderer : MonoBehaviour
                 }
 
                 c.a = overlayAlpha;
-                pixels[(y - 1) * size + (x - 1)] = c;
+                overlayPixels[y * texSize + x] = c;
             }
         }
 
-        overlayTexture.SetPixels32(pixels);
+        overlayTexture.SetPixels32(overlayPixels);
         overlayTexture.Apply();
         overlayDirty = false;
     }
@@ -364,6 +610,17 @@ public class CellRenderer : MonoBehaviour
     void LateUpdate()
     {
         if (SimulationCore.EnvirData == null || cameraController == null) return;
+
+        if (bgNormalDirty)
+            UpdateBackgroundNormalTexture();
+
+        if (normalLightingEnabled != lastNormalLightingEnabled ||
+            (terrainLightDirection - lastTerrainLightDirection).sqrMagnitude > 0.000001f)
+        {
+            ApplyBackgroundLightingSettings();
+            lastNormalLightingEnabled = normalLightingEnabled;
+            lastTerrainLightDirection = terrainLightDirection;
+        }
 
         if (currentViewMode != lastRenderedMode)
         {
@@ -379,6 +636,13 @@ public class CellRenderer : MonoBehaviour
         // 温度/光照模式：渲染半透明叠加层
         if (currentViewMode == ViewMode.Temperature || currentViewMode == ViewMode.Light)
         {
+            long currentStep = SimulationCore.GetResearchStepCounter();
+            if (currentStep != lastOverlayStep)
+            {
+                overlayDirty = true;
+                lastOverlayStep = currentStep;
+            }
+
             if (overlayDirty)
                 UpdateOverlayTexture();
             if (overlayMesh != null && overlayMaterial != null)

@@ -4,7 +4,7 @@ using System;
 [Serializable]
 public class Envir
 {
-    public int Temp;              // 温度
+    public float Temp;            // 温度
     public int Light;             // 光照强度
     public int CellNum;           // 当前细胞数量
     public int MaxCellNum;        // 最大容纳细胞数
@@ -15,7 +15,11 @@ public class Envir
 
     public Cell[] CellList;       // 该格中的细胞列表（下标从1开始）
 
-    public Envir(int maxCellNum = SimulationConfig.CellMaxNum)
+    public Envir() : this(SimulationConfig.CellMaxNum)
+    {
+    }
+
+    public Envir(int maxCellNum)
     {
         MaxCellNum = maxCellNum;
         CellList = new Cell[maxCellNum + 1];

@@ -19,8 +19,8 @@ namespace Multiply
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针
-        private static Action<Cell>[,] ActionTable
-            = new Action<Cell>[110, SimulationConfig.GeneNum + 1];
+        private static Action<Cell, Gene>[,] ActionTable
+            = new Action<Cell, Gene>[110, SimulationConfig.GeneNum + 1];
 
         // 主缓冲区（Apply阶段使用）
         private static List<MultiplyCommand> Buffer = new List<MultiplyCommand>();
@@ -33,18 +33,18 @@ namespace Multiply
         {
             for (int i = 1; i < cell.MainGeneList.Length; i++)
             {
-                int geneId = cell.MainGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.MainGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
 
             for (int i = 1; i < cell.SubGeneList.Length; i++)
             {
-                int geneId = cell.SubGeneList[i].id;
-                if (geneId == 0) continue;
-                Action<Cell> action = ActionTable[triggerId, geneId];
-                if (action != null) action(cell);
+                Gene gene = cell.SubGeneList[i];
+                if (gene.baseId == 0) continue;
+                Action<Cell, Gene> action = ActionTable[triggerId, gene.baseId];
+                if (action != null) action(cell, gene);
             }
         }
 
@@ -54,7 +54,7 @@ namespace Multiply
 
         // 扳机1, 基因1: 基础繁殖
         // 10%几率繁殖，在自身及周围八格中随机选择一格能繁殖的环境
-        private static void Func_1_1(Cell cell)
+        private static void Func_1_1(Cell cell, Gene gene)
         {
             var rng = SimulationCore.EnsureThreadRng();
             if (rng.NextDouble() >= 0.10) return;
@@ -107,6 +107,12 @@ namespace Multiply
             var allCells = SimulationCore.AllCells;
             int count = allCells.Count;
             var collectedBuffers = new ConcurrentBag<MultiplyCommand[]>();
+
+            if (count == 0)
+            {
+                Buffer.Clear();
+                return;
+            }
 
             Parallel.ForEach(Partitioner.Create(0, count), range =>
             {
