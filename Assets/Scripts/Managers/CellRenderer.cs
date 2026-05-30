@@ -31,10 +31,14 @@ public class CellRenderer : MonoBehaviour
     private bool drawGrid = false;
 
     // 视图模式
-    public enum ViewMode { Terrain = 0, Temperature = 1, Light = 2, Altitude = 3 }
-    public static ViewMode currentViewMode = ViewMode.Terrain;
+    public enum BaseViewMode { Terrain = 0, Altitude = 1 }
+    [System.Flags]
+    public enum OverlayViewMode { None = 0, Temperature = 1, Light = 2 }
+    public static BaseViewMode currentBaseViewMode = BaseViewMode.Terrain;
+    public static OverlayViewMode currentOverlayViewMode = OverlayViewMode.None;
     public static bool normalLightingEnabled = true;
-    private ViewMode lastRenderedMode = (ViewMode)(-1);
+    private BaseViewMode lastBaseViewMode = (BaseViewMode)(-1);
+    private OverlayViewMode lastOverlayViewMode = OverlayViewMode.None;
     private bool lastNormalLightingEnabled = true;
     private Vector3 lastTerrainLightDirection = SimulationConfig.TerrainLightDirection;
 
@@ -51,6 +55,7 @@ public class CellRenderer : MonoBehaviour
     private Mesh overlayMesh;
     private bool overlayDirty = true;
     private long lastOverlayStep = -1;
+    private float lastOverlayUpdateTime = 0f;
     private Color32[] overlayPixels;
     private int overlayTextureSize;
     private int overlayDownsampleFactor = 1;
@@ -218,6 +223,55 @@ public class CellRenderer : MonoBehaviour
             bgMaterial.SetFloat("_LightingEnabled", normalLightingEnabled ? 1f : 0f);
     }
 
+    void ApplyOverlayMaterialSettings()
+    {
+        if (overlayMaterial == null) return;
+        bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
+        bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
+        if (overlayMaterial.HasProperty("_ShowTemp"))
+            overlayMaterial.SetFloat("_ShowTemp", showTemp ? 1f : 0f);
+        if (overlayMaterial.HasProperty("_ShowLight"))
+            overlayMaterial.SetFloat("_ShowLight", showLight ? 1f : 0f);
+
+        if (overlayMaterial.HasProperty("_TempBlue"))
+            overlayMaterial.SetColor("_TempBlue", SimulationConfig.TempColorBlue);
+        if (overlayMaterial.HasProperty("_TempCyan"))
+            overlayMaterial.SetColor("_TempCyan", SimulationConfig.TempColorCyan);
+        if (overlayMaterial.HasProperty("_TempGreen"))
+            overlayMaterial.SetColor("_TempGreen", SimulationConfig.TempColorGreen);
+        if (overlayMaterial.HasProperty("_TempYellow"))
+            overlayMaterial.SetColor("_TempYellow", SimulationConfig.TempColorYellow);
+        if (overlayMaterial.HasProperty("_TempOrange"))
+            overlayMaterial.SetColor("_TempOrange", SimulationConfig.TempColorOrange);
+        if (overlayMaterial.HasProperty("_TempRed"))
+            overlayMaterial.SetColor("_TempRed", SimulationConfig.TempColorRed);
+
+        if (overlayMaterial.HasProperty("_TempBlueMax"))
+            overlayMaterial.SetFloat("_TempBlueMax", SimulationConfig.TempColorBlueMax);
+        if (overlayMaterial.HasProperty("_TempCyanMax"))
+            overlayMaterial.SetFloat("_TempCyanMax", SimulationConfig.TempColorCyanMax);
+        if (overlayMaterial.HasProperty("_TempGreenMax"))
+            overlayMaterial.SetFloat("_TempGreenMax", SimulationConfig.TempColorGreenMax);
+        if (overlayMaterial.HasProperty("_TempYellowMax"))
+            overlayMaterial.SetFloat("_TempYellowMax", SimulationConfig.TempColorYellowMax);
+        if (overlayMaterial.HasProperty("_TempOrangeMin"))
+            overlayMaterial.SetFloat("_TempOrangeMin", SimulationConfig.TempColorOrangeMin);
+        if (overlayMaterial.HasProperty("_TempOrangeMax"))
+            overlayMaterial.SetFloat("_TempOrangeMax", SimulationConfig.TempColorOrangeMax);
+        if (overlayMaterial.HasProperty("_TempRedMin"))
+            overlayMaterial.SetFloat("_TempRedMin", SimulationConfig.TempColorRedMin);
+
+        if (overlayMaterial.HasProperty("_TempEncodeMin"))
+            overlayMaterial.SetFloat("_TempEncodeMin", SimulationConfig.OverlayTempEncodeMin);
+        if (overlayMaterial.HasProperty("_TempEncodeMax"))
+            overlayMaterial.SetFloat("_TempEncodeMax", SimulationConfig.OverlayTempEncodeMax);
+
+        if (overlayMaterial.HasProperty("_LightDark"))
+            overlayMaterial.SetColor("_LightDark", SimulationConfig.LightColorDark);
+        if (overlayMaterial.HasProperty("_LightBright"))
+            overlayMaterial.SetColor("_LightBright", SimulationConfig.LightColorBright);
+    }
+
     public static Vector3 GetTerrainLightDirection()
     {
         return terrainLightDirection;
@@ -249,8 +303,10 @@ public class CellRenderer : MonoBehaviour
         instance.ApplyBackgroundLightingSettings();
         instance.bgNormalDirty = true;
         instance.overlayDirty = true;
-        instance.lastRenderedMode = (ViewMode)(-1);
+        instance.lastBaseViewMode = (BaseViewMode)(-1);
+        instance.lastOverlayViewMode = OverlayViewMode.None;
         instance.lastTerrainLightDirection = terrainLightDirection;
+        instance.ApplyOverlayMaterialSettings();
     }
 
     int WrapEnvirIndex(int value, int size)
@@ -280,10 +336,16 @@ public class CellRenderer : MonoBehaviour
         overlayTexture.wrapMode = TextureWrapMode.Clamp;
         overlayPixels = new Color32[overlayTextureSize * overlayTextureSize];
 
-        Shader shader = Shader.Find("Sprites/Default");
+        Shader shader = Shader.Find("Custom/OverlayColorMap");
+        if (shader == null)
+        {
+            Debug.LogWarning("OverlayColorMap shader not found, falling back to Sprites/Default.");
+            shader = Shader.Find("Sprites/Default");
+        }
         overlayMaterial = new Material(shader);
         overlayMaterial.mainTexture = overlayTexture;
         overlayMaterial.color = Color.white;
+        ApplyOverlayMaterialSettings();
 
         float worldSize = size * SimulationConfig.PixelPerEnvir;
         overlayMesh = new Mesh();
@@ -318,7 +380,7 @@ public class CellRenderer : MonoBehaviour
                 Color c;
                 Envir env = SimulationCore.EnvirData[x, y];
 
-                if (currentViewMode == ViewMode.Altitude)
+                if (currentBaseViewMode == BaseViewMode.Altitude)
                 {
                     c = GetAltitudeContourColor(env.Height);
 
@@ -519,20 +581,13 @@ public class CellRenderer : MonoBehaviour
         int size = SimulationConfig.EnvirSize;
         int factor = Mathf.Max(1, overlayDownsampleFactor);
         int texSize = Mathf.Max(1, overlayTextureSize);
-        float overlayAlpha = SimulationConfig.OverlayAlpha;
-        Color tempBlue = SimulationConfig.TempColorBlue;
-        Color tempCyan = SimulationConfig.TempColorCyan;
-        Color tempGreen = SimulationConfig.TempColorGreen;
-        Color tempYellow = SimulationConfig.TempColorYellow;
-        Color tempOrange = SimulationConfig.TempColorOrange;
-        Color tempRed = SimulationConfig.TempColorRed;
-        float blueMax = SimulationConfig.TempColorBlueMax;
-        float cyanMax = SimulationConfig.TempColorCyanMax;
-        float greenMax = SimulationConfig.TempColorGreenMax;
-        float yellowMax = SimulationConfig.TempColorYellowMax;
-        float orangeMin = SimulationConfig.TempColorOrangeMin;
-        float orangeMax = SimulationConfig.TempColorOrangeMax;
-        float redMin = SimulationConfig.TempColorRedMin;
+        byte overlayAlpha = (byte)Mathf.Clamp(Mathf.RoundToInt(SimulationConfig.OverlayAlpha * 255f), 0, 255);
+        float tempEncodeMin = SimulationConfig.OverlayTempEncodeMin;
+        float tempEncodeMax = SimulationConfig.OverlayTempEncodeMax;
+        float lightMin = SimulationConfig.LightMin;
+        float lightMax = SimulationConfig.LightMax;
+        bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
+        bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
 
         for (int y = 0; y < texSize; y++)
         {
@@ -543,62 +598,20 @@ public class CellRenderer : MonoBehaviour
                 int envX = 1 + x * factor + factor / 2;
                 if (envX > size) envX = size;
                 Envir env = SimulationCore.EnvirData[envX, envY];
-                Color c;
-
-                if (currentViewMode == ViewMode.Temperature)
+                byte r = 0;
+                byte g = 0;
+                if (showTemp)
                 {
                     float tempC = SimulationCore.KelvinToCelsius(env.Temp);
-                    if (tempC <= blueMax)
-                    {
-                        c = tempBlue;
-                    }
-                    else if (tempC <= cyanMax)
-                    {
-                        float denom = Mathf.Max(0.0001f, cyanMax - blueMax);
-                        float t01 = Mathf.Clamp01((tempC - blueMax) / denom);
-                        c = Color.Lerp(tempBlue, tempCyan, t01);
-                    }
-                    else if (tempC <= greenMax)
-                    {
-                        float denom = Mathf.Max(0.0001f, greenMax - cyanMax);
-                        float t01 = Mathf.Clamp01((tempC - cyanMax) / denom);
-                        c = Color.Lerp(tempCyan, tempGreen, t01);
-                    }
-                    else if (tempC <= yellowMax)
-                    {
-                        float denom = Mathf.Max(0.0001f, yellowMax - greenMax);
-                        float t01 = Mathf.Clamp01((tempC - greenMax) / denom);
-                        c = Color.Lerp(tempGreen, tempYellow, t01);
-                    }
-                    else if (tempC <= orangeMin)
-                    {
-                        float denom = Mathf.Max(0.0001f, orangeMin - yellowMax);
-                        float t01 = Mathf.Clamp01((tempC - yellowMax) / denom);
-                        c = Color.Lerp(tempYellow, tempOrange, t01);
-                    }
-                    else if (tempC <= orangeMax)
-                    {
-                        c = tempOrange;
-                    }
-                    else if (tempC <= redMin)
-                    {
-                        float denom = Mathf.Max(0.0001f, redMin - orangeMax);
-                        float t01 = Mathf.Clamp01((tempC - orangeMax) / denom);
-                        c = Color.Lerp(tempOrange, tempRed, t01);
-                    }
-                    else
-                    {
-                        c = tempRed;
-                    }
+                    float t01 = Mathf.InverseLerp(tempEncodeMin, tempEncodeMax, tempC);
+                    r = (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(t01) * 255f), 0, 255);
                 }
-                else
+                if (showLight)
                 {
-                    float l = Mathf.InverseLerp(SimulationConfig.LightMin, SimulationConfig.LightMax, env.Light);
-                    c = Color.Lerp(SimulationConfig.LightColorDark, SimulationConfig.LightColorBright, l);
+                    float l01 = Mathf.InverseLerp(lightMin, lightMax, env.Light);
+                    g = (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(l01) * 255f), 0, 255);
                 }
-
-                c.a = overlayAlpha;
-                overlayPixels[y * texSize + x] = c;
+                overlayPixels[y * texSize + x] = new Color32(r, g, 0, overlayAlpha);
             }
         }
 
@@ -622,11 +635,10 @@ public class CellRenderer : MonoBehaviour
             lastTerrainLightDirection = terrainLightDirection;
         }
 
-        if (currentViewMode != lastRenderedMode)
+        if (currentBaseViewMode != lastBaseViewMode)
         {
             UpdateBackgroundTexture();
-            overlayDirty = true;
-            lastRenderedMode = currentViewMode;
+            lastBaseViewMode = currentBaseViewMode;
         }
 
         // 始终渲染地形底图
@@ -634,19 +646,35 @@ public class CellRenderer : MonoBehaviour
             Graphics.DrawMesh(bgMesh, Matrix4x4.identity, bgMaterial, 0);
 
         // 温度/光照模式：渲染半透明叠加层
-        if (currentViewMode == ViewMode.Temperature || currentViewMode == ViewMode.Light)
+        if (currentOverlayViewMode != OverlayViewMode.None)
         {
+            if (currentOverlayViewMode != lastOverlayViewMode)
+            {
+                overlayDirty = true;
+                lastOverlayViewMode = currentOverlayViewMode;
+            }
+            ApplyOverlayMaterialSettings();
             long currentStep = SimulationCore.GetResearchStepCounter();
-            if (currentStep != lastOverlayStep)
+            int stepInterval = Mathf.Max(1, SimulationConfig.OverlayUpdateStepInterval);
+            float minInterval = Mathf.Max(0f, SimulationConfig.OverlayUpdateMinIntervalSeconds);
+            if (currentStep - lastOverlayStep >= stepInterval)
             {
                 overlayDirty = true;
                 lastOverlayStep = currentStep;
             }
 
-            if (overlayDirty)
+            float now = Time.realtimeSinceStartup;
+            if (overlayDirty && (minInterval <= 0f || now - lastOverlayUpdateTime >= minInterval))
+            {
                 UpdateOverlayTexture();
+                lastOverlayUpdateTime = now;
+            }
             if (overlayMesh != null && overlayMaterial != null)
                 Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, overlayMaterial, 0);
+        }
+        else
+        {
+            lastOverlayViewMode = OverlayViewMode.None;
         }
 
         int minX, maxX, minY, maxY;

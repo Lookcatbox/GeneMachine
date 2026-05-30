@@ -35,6 +35,7 @@ public static class SimulationCore
     private static long researchPoints = 0;
     private static long researchStepCounter = 0;
     private static int lastResearchGainAmount = 0;
+    private static double playSeconds = 0;
     public static int TempLowUpgradeLevel = 0;
     public static int TempHighUpgradeLevel = 0;
 
@@ -55,6 +56,13 @@ public static class SimulationCore
         climateInitialized = false;
         lastClimateLightDirection = SimulationConfig.TerrainLightDirection;
         distanceToLand = null;
+        researchPoints = 0;
+        researchStepCounter = 0;
+        lastResearchGainAmount = 0;
+        TempLowUpgradeLevel = 0;
+        TempHighUpgradeLevel = 0;
+        totalSteps = 0;
+        playSeconds = 0;
         int size = SimulationConfig.EnvirSize;
         EnvirData = new Envir[size + 2, size + 2];
         for (int x = 1; x <= size; x++)
@@ -197,6 +205,23 @@ public static class SimulationCore
         simulationThread.Start();
     }
 
+    public static void StartCalculationThreadFromLoadedWorld()
+    {
+        if (isRunning) return;
+        if (EnvirData == null)
+        {
+            StartCalculationThread();
+            return;
+        }
+
+        isRunning = true;
+        isPaused = false;
+        simulationThread = new Thread(CalculationLoop);
+        simulationThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+        simulationThread.IsBackground = true;
+        simulationThread.Start();
+    }
+
     private static void CalculationLoop()
     {
         ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
@@ -266,10 +291,11 @@ public static class SimulationCore
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
         // 原Sort O(N log N) 在100万细胞时约占50%时间，移除后直接翻倍
 
-        Multiply.Behavior.PreParallel();
-        Temperature.Behavior.PreParallel();
-        Light.Behavior.PreParallel();
-        Death.Behavior.PreParallel();
+        Parallel.Invoke(
+            () => Multiply.Behavior.Pre(),
+            () => Temperature.Behavior.Pre(),
+            () => Light.Behavior.Pre(),
+            () => Death.Behavior.Pre());
         
         Multiply.Behavior.Apply();
         Temperature.Behavior.Apply();
@@ -467,9 +493,10 @@ public static class SimulationCore
 
                 float temp = latitudeBaseTemp;
                 temp += (env.Light - SimulationConfig.DefaultLight) * SimulationConfig.ClimateLightToTempWeight;
-                temp -= aboveSea01 * (isWater
-                    ? SimulationConfig.ClimateWaterAltitudeCooling
-                    : SimulationConfig.ClimateLandAltitudeCooling);
+                float heightAboveSea = Mathf.Max(0f, centerHeight - SimulationConfig.AltitudeThreshold);
+                float heightStep = Mathf.Max(0.0001f, SimulationConfig.AltitudeTempLapseHeightStep);
+                float altitudeCooling = (heightAboveSea / heightStep) * SimulationConfig.AltitudeTempLapsePerStep;
+                temp -= altitudeCooling;
 
                 if (isWater)
                 {
@@ -641,16 +668,14 @@ public static class SimulationCore
 
     public static void GainResearchPoints()
     {
-        int playerCount = 0;
-        for (int i = 0; i < AllCells.Count; i++)
-        {
-            Cell cell = AllCells[i];
-            if (cell.alive && cell.isPlayer)
-                playerCount++;
-        }
-        Interlocked.Exchange(ref lastResearchGainAmount, playerCount);
-        if (playerCount > 0)
-            Interlocked.Add(ref researchPoints, playerCount);
+        int baseGain = Math.Max(0, SimulationConfig.ResearchBaseGainPerStep);
+        int coverageCells = DeviceSystem.CountResearchCoverageCells();
+        int perCell = Math.Max(0, SimulationConfig.ResearchDeviceGainPerCell);
+        int totalGain = baseGain + coverageCells * perCell;
+
+        Interlocked.Exchange(ref lastResearchGainAmount, totalGain);
+        if (totalGain > 0)
+            Interlocked.Add(ref researchPoints, totalGain);
     }
 
     public static bool TrySpendResearchPoints(int cost)
@@ -673,14 +698,41 @@ public static class SimulationCore
         return Interlocked.Read(ref researchPoints);
     }
 
+    public static void SetResearchPoints(long value)
+    {
+        Interlocked.Exchange(ref researchPoints, Math.Max(0, value));
+    }
+
     public static long GetResearchStepCounter()
     {
         return Interlocked.Read(ref researchStepCounter);
     }
 
+    public static void SetResearchStepCounter(long value)
+    {
+        Interlocked.Exchange(ref researchStepCounter, Math.Max(0, value));
+    }
+
     public static int GetLastResearchGainAmount()
     {
         return Interlocked.CompareExchange(ref lastResearchGainAmount, 0, 0);
+    }
+
+    public static double GetPlaySeconds()
+    {
+        return playSeconds;
+    }
+
+    public static void SetPlaySeconds(double value)
+    {
+        playSeconds = Math.Max(0.0, value);
+    }
+
+    public static void AddPlaySeconds(double delta)
+    {
+        if (delta <= 0)
+            return;
+        playSeconds += delta;
     }
 
     public static float CelsiusToKelvin(float tempC)

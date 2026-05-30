@@ -8,6 +8,14 @@ public struct Gene
     public int hashId;       // 唯一身份 id，由 baseId + 升级情况 hash 生成
     public int energyCost;   // 每回合能量消耗
 
+    // 当前基因编号与效果对应（以各行为 ActionTable 注册为准）
+    // 0: 空位
+    // 1: 繁殖（Multiply.Func_1_1）
+    // 2: 温度耐受奖励（Temperature.Func_1_2）
+    // 3: 光合作用产能（Light.Func_1_3）
+    // 4: 自然寿命致死（Death.Func_3_4）
+    // 5: 拥挤致死（Death.Func_4_5）
+
     private static readonly Dictionary<int, int> UpgradeSparseTable = new Dictionary<int, int>();
 
     public int id => hashId;

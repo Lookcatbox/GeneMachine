@@ -33,6 +33,18 @@ public class MainManager : MonoBehaviour
     private int lockedEnvironmentX = -1;
     private int lockedEnvironmentY = -1;
     private Texture2D playerPanelToggleTexture;
+    private Texture2D rangeOverlayTexture;
+    private bool hasSelectedDevice = false;
+    private DeviceInstance selectedDevice;
+
+    private bool showSaveWindow = false;
+    private bool showSaveConfirm = false;
+    private bool pausedBeforeSave = false;
+    private int pendingSaveSlot = -1;
+    private SaveSlotInfo[] cachedSaveSlots;
+    private float lastSaveSlotsRefreshTime = -1f;
+    private Rect lastSaveWindowRect;
+    private Rect lastSaveConfirmRect;
 
     void Reset()
     {
@@ -47,6 +59,7 @@ public class MainManager : MonoBehaviour
         InitializePlayerPanelTabs();
         EnsurePlayerPanelToggleTexture();
         ApplyRenderSettings();
+        DeviceSystem.Init();
     }
 
     void OnValidate()
@@ -60,13 +73,33 @@ public class MainManager : MonoBehaviour
     {
         // 启动独立计算线程
         SimulationCore.SetSpeedMultiplier(simulationSpeed);
-        SimulationCore.StartCalculationThread();
+        if (SaveSystem.HasPendingLoadSlot)
+        {
+            int slot = SaveSystem.ConsumePendingLoadSlot();
+            bool loaded = SaveSystem.LoadSlotIntoSimulation(slot, this);
+            if (loaded)
+                SimulationCore.StartCalculationThreadFromLoadedWorld();
+            else
+            {
+                DeviceSystem.ResetRuntimeState();
+                SimulationCore.StartCalculationThread();
+            }
+        }
+        else
+        {
+            DeviceSystem.ResetRuntimeState();
+            SimulationCore.StartCalculationThread();
+        }
         Debug.Log("基因自动机已启动！计算线程独立运行中...");
     }
 
     void Update()
     {
         UpdateEnvironmentSelectionState();
+        HandleDevicePlacementInput();
+
+        if (!SimulationCore.IsPaused())
+            SimulationCore.AddPlaySeconds(Time.unscaledDeltaTime);
 
         // 快捷键
         if (Input.GetKeyDown(KeyCode.Space))
@@ -94,6 +127,14 @@ public class MainManager : MonoBehaviour
                 DestroyImmediate(playerPanelToggleTexture);
         }
 
+        if (rangeOverlayTexture != null)
+        {
+            if (Application.isPlaying)
+                Destroy(rangeOverlayTexture);
+            else
+                DestroyImmediate(rangeOverlayTexture);
+        }
+
         SimulationCore.StopCalculation();
         Debug.Log("模拟已停止");
     }
@@ -102,6 +143,7 @@ public class MainManager : MonoBehaviour
     {
         playerPanelTabCount = 0;
         RegisterPlayerPanelTab(new EnvironmentPlayerPanelTab());
+        RegisterPlayerPanelTab(new DevicePlayerPanelTab());
         RegisterPlayerPanelTab(new GenePlayerPanelTab());
         RegisterPlayerPanelTab(new ResearchPlayerPanelTab());
         RegisterPlayerPanelTab(new PopulationPlayerPanelTab());
@@ -213,6 +255,11 @@ public class MainManager : MonoBehaviour
         DrawPlayerOperationPanel(style, shadowStyle);
         DrawViewModeUI();
         DrawLightControlUI(style, shadowStyle);
+        DrawPlacedDeviceIcons();
+        DrawDeviceRangeOverlays();
+        DrawDevicePlacementPreview();
+        DrawSaveWindow(style, shadowStyle);
+        DrawSaveConfirm(style, shadowStyle);
     }
 
     void DrawSpeedControl(GUIStyle style, GUIStyle shadowStyle)
@@ -239,6 +286,10 @@ public class MainManager : MonoBehaviour
         string speedText = string.Format("{0}x  ({1:F1}秒/步)", SimulationCore.speedMultiplier, 1f / SimulationCore.speedMultiplier);
         GUI.Label(new Rect(x + 13, y + 60, panelWidth - 20, 22), speedText, shadowStyle);
         GUI.Label(new Rect(x + 12, y + 59, panelWidth - 20, 22), speedText, style);
+
+        Rect saveRect = new Rect(x + 12, y + 82, panelWidth - 24, 28);
+        if (GUI.Button(saveRect, "保存游戏"))
+            OpenSaveWindow();
     }
 
     void DrawPlayerOperationPanel(GUIStyle style, GUIStyle shadowStyle)
@@ -313,32 +364,70 @@ public class MainManager : MonoBehaviour
 
     void DrawViewModeUI()
     {
-        float btnWidth = 100f;
+        float btnWidth = 108f;
         float btnHeight = 28f;
+        float labelHeight = 18f;
         float spacing = 4f;
-        float totalHeight = btnHeight * 5 + spacing * 4f + 8f;
+        float sectionGap = 6f;
+        float totalHeight = labelHeight
+            + btnHeight * 2 + spacing
+            + sectionGap
+            + labelHeight
+            + btnHeight * 2 + spacing
+            + sectionGap
+            + btnHeight
+            + 8f;
         float panelLeft = GetPlayerPanelLeftBoundary();
         float x = panelLeft - btnWidth;
         float y = Screen.height - totalHeight - PanelEdgeMargin;
 
-        string[] labels = { "地形视图", "温度视图", "光照视图", "高度视图" };
         Color origBg = GUI.backgroundColor;
+        GUI.color = Color.white;
+        GUI.Label(new Rect(x, y, btnWidth, labelHeight), "基础视图");
+        y += labelHeight + spacing;
 
-        for (int i = 0; i < labels.Length; i++)
+        bool baseTerrain = CellRenderer.currentBaseViewMode == CellRenderer.BaseViewMode.Terrain;
+        GUI.backgroundColor = baseTerrain ? new Color(0.3f, 0.8f, 1f) : new Color(0.5f, 0.5f, 0.5f);
+        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "地形视图"))
+            CellRenderer.currentBaseViewMode = CellRenderer.BaseViewMode.Terrain;
+        y += btnHeight + spacing;
+
+        bool baseAltitude = CellRenderer.currentBaseViewMode == CellRenderer.BaseViewMode.Altitude;
+        GUI.backgroundColor = baseAltitude ? new Color(0.3f, 0.8f, 1f) : new Color(0.5f, 0.5f, 0.5f);
+        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "高度视图"))
+            CellRenderer.currentBaseViewMode = CellRenderer.BaseViewMode.Altitude;
+        y += btnHeight + sectionGap;
+
+        GUI.backgroundColor = origBg;
+        GUI.color = Color.white;
+        GUI.Label(new Rect(x, y, btnWidth, labelHeight), "叠加视图");
+        y += labelHeight + spacing;
+
+        bool showTemp = (CellRenderer.currentOverlayViewMode & CellRenderer.OverlayViewMode.Temperature) != 0;
+        GUI.backgroundColor = showTemp ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
+        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "温度视图"))
         {
-            bool selected = (int)CellRenderer.currentViewMode == i;
-            GUI.backgroundColor = selected ? new Color(0.3f, 0.8f, 1f) : new Color(0.5f, 0.5f, 0.5f);
-            if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), labels[i]))
-            {
-                CellRenderer.currentViewMode = (CellRenderer.ViewMode)i;
-            }
-            y += btnHeight + spacing;
+            if (showTemp)
+                CellRenderer.currentOverlayViewMode &= ~CellRenderer.OverlayViewMode.Temperature;
+            else
+                CellRenderer.currentOverlayViewMode |= CellRenderer.OverlayViewMode.Temperature;
         }
+        y += btnHeight + spacing;
 
-        float toggleY = y + 8f;
+        bool showLight = (CellRenderer.currentOverlayViewMode & CellRenderer.OverlayViewMode.Light) != 0;
+        GUI.backgroundColor = showLight ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
+        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "光照视图"))
+        {
+            if (showLight)
+                CellRenderer.currentOverlayViewMode &= ~CellRenderer.OverlayViewMode.Light;
+            else
+                CellRenderer.currentOverlayViewMode |= CellRenderer.OverlayViewMode.Light;
+        }
+        y += btnHeight + sectionGap;
+
         bool normalEnabled = CellRenderer.normalLightingEnabled;
         GUI.backgroundColor = normalEnabled ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
-        if (GUI.Button(new Rect(x, toggleY, btnWidth, btnHeight), "3D"))
+        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "3D"))
         {
             CellRenderer.normalLightingEnabled = !CellRenderer.normalLightingEnabled;
         }
@@ -420,6 +509,16 @@ public class MainManager : MonoBehaviour
 
     void UpdateEnvironmentSelectionState()
     {
+        if (showSaveWindow || showSaveConfirm)
+        {
+            hasHoveredEnvironmentCell = false;
+            return;
+        }
+        if (DeviceSystem.IsPlacing)
+        {
+            hasHoveredEnvironmentCell = false;
+            return;
+        }
         if (SimulationCore.EnvirData == null)
         {
             hasHoveredEnvironmentCell = false;
@@ -446,7 +545,17 @@ public class MainManager : MonoBehaviour
         hoveredEnvironmentY = gridY;
 
         if (Input.GetMouseButtonDown(0))
+        {
+            if (DeviceSystem.TryGetDeviceAt(gridX, gridY, out DeviceInstance instance))
+            {
+                hasSelectedDevice = true;
+                selectedDevice = instance;
+                return;
+            }
+
+            hasSelectedDevice = false;
             ToggleLockedEnvironmentCell(gridX, gridY);
+        }
     }
 
     void ToggleLockedEnvironmentCell(int gridX, int gridY)
@@ -544,6 +653,10 @@ public class MainManager : MonoBehaviour
 
     bool IsPointOverInteractiveUI(Vector2 guiPosition)
     {
+        if (showSaveWindow && lastSaveWindowRect.Contains(guiPosition))
+            return true;
+        if (showSaveConfirm && lastSaveConfirmRect.Contains(guiPosition))
+            return true;
         if (GetSpeedPanelRect().Contains(guiPosition))
             return true;
 
@@ -565,7 +678,7 @@ public class MainManager : MonoBehaviour
     Rect GetSpeedPanelRect()
     {
         float panelWidth = 250f;
-        float panelHeight = 92f;
+        float panelHeight = 122f;
         float x = Mathf.Max(PanelEdgeMargin, GetPlayerPanelLeftBoundary() - panelWidth - PanelEdgeMargin);
         return new Rect(x, PanelEdgeMargin, panelWidth, panelHeight);
     }
@@ -578,10 +691,19 @@ public class MainManager : MonoBehaviour
 
     Rect GetViewModeButtonColumnRect()
     {
-        float btnWidth = 100f;
+        float btnWidth = 108f;
         float btnHeight = 28f;
+        float labelHeight = 18f;
         float spacing = 4f;
-        float totalHeight = btnHeight * 5 + spacing * 4f + 8f;
+        float sectionGap = 6f;
+        float totalHeight = labelHeight
+            + btnHeight * 2 + spacing
+            + sectionGap
+            + labelHeight
+            + btnHeight * 2 + spacing
+            + sectionGap
+            + btnHeight
+            + 8f;
         float x = GetPlayerPanelLeftBoundary() - btnWidth;
         float y = Screen.height - totalHeight - PanelEdgeMargin;
         return new Rect(x, y, btnWidth, totalHeight);
@@ -623,5 +745,377 @@ public class MainManager : MonoBehaviour
         float radial = Mathf.Clamp01(normalized.magnitude);
         float z = Mathf.Lerp(0.16f, 0.62f, 1f - radial);
         CellRenderer.SetTerrainLightDirection(new Vector3(normalized.x, normalized.y, z));
+    }
+
+    void HandleDevicePlacementInput()
+    {
+        if (showSaveWindow || showSaveConfirm)
+            return;
+        if (!DeviceSystem.IsPlacing)
+            return;
+
+        if (Input.GetMouseButtonDown(1))
+        {
+            DeviceSystem.CancelPlacement();
+            return;
+        }
+
+        if (!Input.GetMouseButtonDown(0))
+            return;
+
+        Vector2 guiMouse = GetGuiMousePosition();
+        if (IsPointOverInteractiveUI(guiMouse))
+            return;
+
+        int gridX;
+        int gridY;
+        if (!TryGetEnvironmentCellUnderMouse(out gridX, out gridY))
+            return;
+
+        if (DeviceSystem.TryPlaceDevice(DeviceSystem.PlacingTypeId, gridX, gridY))
+            DeviceSystem.CancelPlacement();
+    }
+
+    void DrawDevicePlacementPreview()
+    {
+        if (!DeviceSystem.IsPlacing)
+            return;
+
+        Texture2D preview = DeviceSystem.GetPlacingPreviewTexture();
+        if (preview == null)
+            return;
+
+        Vector2 guiMouse = GetGuiMousePosition();
+        if (IsPointOverInteractiveUI(guiMouse))
+            return;
+
+        int gridX;
+        int gridY;
+        if (!TryGetEnvironmentCellUnderMouse(out gridX, out gridY))
+            return;
+
+        Camera worldCamera = Camera.main;
+        if (worldCamera == null)
+            return;
+
+        float ppe = SimulationConfig.PixelPerEnvir;
+        float worldX = (gridX - 0.5f) * ppe;
+        float worldY = (gridY - 0.5f) * ppe;
+        Vector3 screen = worldCamera.WorldToScreenPoint(new Vector3(worldX, worldY, 0f));
+        if (screen.z < 0f)
+            return;
+
+        float size = SimulationConfig.DevicePreviewSize;
+        Rect rect = new Rect(screen.x - size * 0.5f, Screen.height - screen.y - size * 0.5f, size, size);
+        Color prevColor = GUI.color;
+        GUI.color = new Color(1f, 1f, 1f, SimulationConfig.DevicePreviewAlpha);
+        GUI.DrawTexture(rect, preview, ScaleMode.StretchToFill);
+        GUI.color = prevColor;
+    }
+
+    void DrawPlacedDeviceIcons()
+    {
+        if (SimulationCore.EnvirData == null)
+            return;
+
+        Camera worldCamera = Camera.main;
+        if (worldCamera == null)
+            return;
+
+        var placed = DeviceSystem.GetPlacedDevices();
+        if (placed == null || placed.Count == 0)
+            return;
+
+        float ppe = SimulationConfig.PixelPerEnvir;
+        float size = SimulationConfig.DeviceIconSize;
+        for (int i = 0; i < placed.Count; i++)
+        {
+            DeviceInstance instance = placed[i];
+            DeviceType type = DeviceSystem.GetDeviceType(instance.TypeId);
+            if (type == null || type.Icon == null)
+                continue;
+
+            float worldX = (instance.X - 0.5f) * ppe;
+            float worldY = (instance.Y - 0.5f) * ppe;
+            Vector3 screen = worldCamera.WorldToScreenPoint(new Vector3(worldX, worldY, 0f));
+            if (screen.z < 0f)
+                continue;
+
+            Rect rect = new Rect(screen.x - size * 0.5f, Screen.height - screen.y - size * 0.5f, size, size);
+            GUI.DrawTexture(rect, type.Icon, ScaleMode.StretchToFill);
+        }
+    }
+
+    void DrawDeviceRangeOverlays()
+    {
+        if (showSaveWindow || showSaveConfirm)
+            return;
+        if (DeviceSystem.IsPlacing)
+        {
+            Vector2 guiMouse = GetGuiMousePosition();
+            if (!IsPointOverInteractiveUI(guiMouse) && TryGetEnvironmentCellUnderMouse(out int gridX, out int gridY))
+            {
+                int range = DeviceSystem.GetDeviceRange(DeviceSystem.PlacingTypeId);
+                DrawDeviceRangeOverlay(gridX, gridY, range);
+            }
+        }
+
+        if (hasSelectedDevice)
+        {
+            int range = DeviceSystem.GetDeviceRange(selectedDevice.TypeId);
+            DrawDeviceRangeOverlay(selectedDevice.X, selectedDevice.Y, range);
+        }
+    }
+
+    void DrawDeviceRangeOverlay(int centerX, int centerY, int range)
+    {
+        if (range <= 0)
+            return;
+
+        Camera worldCamera = Camera.main;
+        if (worldCamera == null)
+            return;
+
+        EnsureRangeOverlayTexture();
+        float ppe = SimulationConfig.PixelPerEnvir;
+        int rangeSq = range * range;
+        Color prev = GUI.color;
+        GUI.color = SimulationConfig.DeviceRangeOverlayColor;
+
+        for (int dx = -range; dx <= range; dx++)
+        {
+            for (int dy = -range; dy <= range; dy++)
+            {
+                int distSq = dx * dx + dy * dy;
+                if (distSq > rangeSq)
+                    continue;
+
+                int x = centerX + dx;
+                int y = centerY + dy;
+                if (!SimulationCore.InBounds(x, y))
+                    continue;
+
+                Vector3 worldBL = new Vector3((x - 1) * ppe, (y - 1) * ppe, 0f);
+                Vector3 worldTR = new Vector3(x * ppe, y * ppe, 0f);
+                Vector3 screenBL = worldCamera.WorldToScreenPoint(worldBL);
+                Vector3 screenTR = worldCamera.WorldToScreenPoint(worldTR);
+                if (screenTR.z < 0f)
+                    continue;
+
+                float width = screenTR.x - screenBL.x;
+                float height = screenTR.y - screenBL.y;
+                if (width <= 0f || height <= 0f)
+                    continue;
+
+                Rect rect = new Rect(screenBL.x, Screen.height - screenTR.y, width, height);
+                GUI.DrawTexture(rect, rangeOverlayTexture, ScaleMode.StretchToFill);
+            }
+        }
+
+        GUI.color = prev;
+    }
+
+    void EnsureRangeOverlayTexture()
+    {
+        if (rangeOverlayTexture != null)
+            return;
+
+        rangeOverlayTexture = new Texture2D(1, 1, TextureFormat.RGBA32, false);
+        rangeOverlayTexture.filterMode = FilterMode.Point;
+        rangeOverlayTexture.wrapMode = TextureWrapMode.Clamp;
+        rangeOverlayTexture.SetPixel(0, 0, Color.white);
+        rangeOverlayTexture.Apply();
+    }
+
+    void OpenSaveWindow()
+    {
+        if (showSaveWindow)
+            return;
+
+        showSaveWindow = true;
+        pausedBeforeSave = SimulationCore.IsPaused();
+        SimulationCore.PauseSimulation();
+        RefreshSaveSlots(true);
+    }
+
+    void CloseSaveWindow()
+    {
+        showSaveWindow = false;
+        showSaveConfirm = false;
+        pendingSaveSlot = -1;
+        if (!pausedBeforeSave)
+            SimulationCore.ResumeSimulation();
+    }
+
+    void RefreshSaveSlots(bool force)
+    {
+        float now = Time.realtimeSinceStartup;
+        if (!force && now - lastSaveSlotsRefreshTime < 0.5f)
+            return;
+
+        cachedSaveSlots = SaveSystem.LoadAllSlotInfos();
+        lastSaveSlotsRefreshTime = now;
+    }
+
+    void DrawSaveWindow(GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
+        if (!showSaveWindow)
+            return;
+
+        RefreshSaveSlots(false);
+
+        float width = Mathf.Min(760f, Screen.width * 0.85f);
+        float height = Mathf.Min(520f, Screen.height * 0.85f);
+        Rect windowRect = new Rect(
+            (Screen.width - width) * 0.5f,
+            (Screen.height - height) * 0.5f,
+            width,
+            height);
+        lastSaveWindowRect = windowRect;
+
+        GUI.Box(windowRect, "");
+
+        Rect titleRect = new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f);
+        GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "存档", shadowStyle);
+        GUI.Label(titleRect, "存档", labelStyle);
+
+        Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
+        if (GUI.Button(closeRect, "X"))
+        {
+            CloseSaveWindow();
+            return;
+        }
+
+        float padding = 14f;
+        float rowHeight = 86f;
+        float rowSpacing = 8f;
+        float y = windowRect.y + 44f;
+        int slotCount = Mathf.Max(1, SimulationConfig.SaveSlotCount);
+
+        for (int i = 0; i < slotCount; i++)
+        {
+            if (y + rowHeight > windowRect.yMax - padding)
+                break;
+
+            Rect rowRect = new Rect(windowRect.x + padding, y, windowRect.width - padding * 2f, rowHeight);
+            GUI.Box(rowRect, "");
+
+            SaveSlotInfo info = cachedSaveSlots != null && i < cachedSaveSlots.Length ? cachedSaveSlots[i] : null;
+            if (GUI.Button(rowRect, ""))
+            {
+                if (info != null && info.HasData)
+                {
+                    pendingSaveSlot = i;
+                    showSaveConfirm = true;
+                }
+                else
+                {
+                    PerformSave(i);
+                }
+            }
+
+            if (info != null && info.HasData)
+            {
+                float thumbSize = rowHeight - 16f;
+                Rect thumbRect = new Rect(rowRect.x + 8f, rowRect.y + 8f, thumbSize, thumbSize);
+                if (info.Screenshot != null)
+                    GUI.DrawTexture(thumbRect, info.Screenshot, ScaleMode.ScaleToFit);
+
+                float textX = thumbRect.xMax + 12f;
+                Rect timeRect = new Rect(textX, rowRect.y + 10f, rowRect.width - textX - 10f, 24f);
+                Rect playRect = new Rect(textX, rowRect.y + 36f, rowRect.width - textX - 10f, 24f);
+                string timeText = string.Format("时间: {0}", info.SavedAt);
+                string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
+                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
+                GUI.Label(timeRect, timeText, labelStyle);
+                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
+                GUI.Label(playRect, playText, labelStyle);
+            }
+            else
+            {
+                // 空存档不显示信息
+            }
+
+            y += rowHeight + rowSpacing;
+        }
+    }
+
+    void DrawSaveConfirm(GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
+        if (!showSaveConfirm)
+            return;
+
+        float width = 360f;
+        float height = 140f;
+        Rect rect = new Rect(
+            (Screen.width - width) * 0.5f,
+            (Screen.height - height) * 0.5f,
+            width,
+            height);
+        lastSaveConfirmRect = rect;
+
+        GUI.Box(rect, "");
+        Rect textRect = new Rect(rect.x + 16f, rect.y + 16f, rect.width - 32f, 40f);
+        GUI.Label(new Rect(textRect.x + 1f, textRect.y + 1f, textRect.width, textRect.height), "覆盖该存档？", shadowStyle);
+        GUI.Label(textRect, "覆盖该存档？", labelStyle);
+
+        float buttonWidth = (rect.width - 48f) * 0.5f;
+        float buttonY = rect.yMax - 40f;
+        Rect okRect = new Rect(rect.x + 16f, buttonY, buttonWidth, 28f);
+        Rect cancelRect = new Rect(okRect.xMax + 16f, buttonY, buttonWidth, 28f);
+
+        if (GUI.Button(okRect, "确定"))
+        {
+            int slot = pendingSaveSlot;
+            showSaveConfirm = false;
+            pendingSaveSlot = -1;
+            PerformSave(slot);
+        }
+        if (GUI.Button(cancelRect, "取消"))
+        {
+            showSaveConfirm = false;
+            pendingSaveSlot = -1;
+        }
+    }
+
+    void PerformSave(int slot)
+    {
+        SaveSystem.SaveToSlot(slot, this);
+        RefreshSaveSlots(true);
+    }
+
+    public ViewSaveData CaptureViewState()
+    {
+        ViewSaveData data = new ViewSaveData();
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            data.CameraPosition = cam.transform.position;
+            data.CameraOrthoSize = cam.orthographicSize;
+        }
+        data.BaseViewMode = (int)CellRenderer.currentBaseViewMode;
+        data.OverlayViewMode = (int)CellRenderer.currentOverlayViewMode;
+        data.NormalLightingEnabled = CellRenderer.normalLightingEnabled;
+        data.PlayerPanelExpanded = playerPanelExpanded;
+        data.ActivePlayerPanelTabIndex = activePlayerPanelTabIndex;
+        data.SimulationSpeed = simulationSpeed;
+        return data;
+    }
+
+    public void ApplyViewState(ViewSaveData data)
+    {
+        Camera cam = Camera.main;
+        if (cam != null)
+        {
+            cam.transform.position = data.CameraPosition;
+            cam.orthographicSize = data.CameraOrthoSize;
+        }
+        CellRenderer.currentBaseViewMode = (CellRenderer.BaseViewMode)data.BaseViewMode;
+        CellRenderer.currentOverlayViewMode = (CellRenderer.OverlayViewMode)data.OverlayViewMode;
+        CellRenderer.normalLightingEnabled = data.NormalLightingEnabled;
+        playerPanelExpanded = data.PlayerPanelExpanded;
+        activePlayerPanelTabIndex = Mathf.Clamp(data.ActivePlayerPanelTabIndex, 0, Mathf.Max(0, playerPanelTabCount - 1));
+        simulationSpeed = Mathf.Clamp(data.SimulationSpeed, 1, 10);
+        SimulationCore.SetSpeedMultiplier(simulationSpeed);
     }
 }

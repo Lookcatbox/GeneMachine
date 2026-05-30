@@ -6,7 +6,7 @@ public static class SimulationConfig
     public static int CellMaxNum = 20;           // 每个环境格能容纳细胞的最大数
     public static int CellTotalMaxNum = 2000000; // 全局细胞总数最大值
     public static int GeneNum = 1000;            // 基因种类数上限
-    public static int WorldSeed = 314159;         // 世界种子
+    public static int WorldSeed = 10000000;         // 世界种子
     public static int EnvirSize = 2000;          // 环境格总大小 EnvirSize x EnvirSize
     public static float PixelPerEnvir = 1.0f;    // 每个环境格对应的世界单位大小
 
@@ -30,7 +30,7 @@ public static class SimulationConfig
     public static int DefaultTemp = 27;          // 默认温度
     public static int DefaultLight = 50;         // 默认光照
     public static float KelvinOffset = 273.15f;  // 摄氏度转开尔文偏移
-    public static int AltitudeThreshold = 450;          // 海拔阈值，低于此高度为水域
+    public static int AltitudeThreshold = 0;            // 海平面高度
 
     // 热扩散与光照简易更新
     public static int LightUpdateValue = 50;     // 每回合光照固定值(0-100)
@@ -68,7 +68,7 @@ public static class SimulationConfig
     public static int ResearchTempUpgradeBaseCost = 10000;
     public static float ResearchTempUpgradeGrowth = 1.5f;
 
-    public static int AltitudeBeach = 475; //若非海，且低于沙滩高度(海平面+25)，则地形为沙滩。
+    public static int AltitudeBeach = 100; //若非海，且低于沙滩高度(海平面+100)，则地形为沙滩。
 
     // 视野优化阈值
     public static int GridOptimizeThreshold = 10000; // 超过此数量的可见格子时进入优化渲染
@@ -128,12 +128,41 @@ public static class SimulationConfig
     public static float TempMax = 35f;
     public static float LightMin = 0f;
     public static float LightMax = 100f;
-    public static float AltitudeMin = 0f;
-    public static float AltitudeMax = 1000f;
+    public static float AltitudeMin = -20000f;
+    public static float AltitudeMax = 20000f;
     public static int AltitudeContourLevels = 50;
     public static int AltitudeCoastBandWidth = 24;
     public static float AltitudeContourDarken = 0.28f;
     public static int OverlayDownsampleFactor = 2; // 温度/光照叠加层降采样因子
+    public static int OverlayUpdateStepInterval = 1; // 叠加层每隔多少回合更新一次
+    public static float OverlayUpdateMinIntervalSeconds = 0.01f; // 叠加层最短更新时间间隔
+    public static float OverlayTempEncodeMin = -40f; // 热力图编码最低温度（摄氏）
+    public static float OverlayTempEncodeMax = 35f;  // 热力图编码最高温度（摄氏）
+
+    // 装置系统
+    public static int DeviceSeedStorageTypeId = 1;
+    public static int DeviceSeedStorageInitialCount = 1;
+    public static int DeviceSeedStorageRange = 10; // 欧拉距离半径
+    public static int DeviceResearchStationTypeId = 2;
+    public static int DeviceResearchStationRange = 10; // 欧拉距离半径
+    public static int DeviceIconSize = 24;
+    public static int DevicePreviewSize = 24;
+    public static float DevicePanelListRatio = 0.33f; // 装置列表占比
+    public static float DevicePreviewAlpha = 0.65f;
+    public static string DeviceTransparentHex = "7F7F7F";
+    public static Color32 DeviceTransparentColor = new Color32(127, 127, 127, 255);
+    public static Color DeviceRangeOverlayColor = new Color(0.15f, 0.9f, 0.35f, 0.25f);
+
+    // 研发点与科研装置
+    public static int ResearchBaseGainPerStep = 100;
+    public static int ResearchDeviceBaseCost = 10000;
+    public static int ResearchDeviceCostMultiplier = 2;
+    public static int ResearchDeviceGainPerCell = 1;
+
+    // 存档
+    public static int SaveSlotCount = 6;
+    public static string MainMenuSceneName = "MainMenu";
+    public static string GameSceneName = "A";
 
     // 环境场：光照 / 温度
     public static float ClimateLatitudeLightMin = 0.30f;
@@ -149,6 +178,8 @@ public static class SimulationConfig
     public static float ClimateLightToTempWeight = 0.08f;
     public static float ClimateLandAltitudeCooling = 8.5f;
     public static float ClimateWaterAltitudeCooling = 3.5f;
+    public static float AltitudeTempLapseHeightStep = 100f; // 每多少高度单位
+    public static float AltitudeTempLapsePerStep = 0.65f;   // 每步温度降低(摄氏)
     public static float ClimateMaritimeTempMin = 20f;
     public static float ClimateMaritimeTempMax = 28f;
     public static float ClimateMaritimeBlend = 0.60f;

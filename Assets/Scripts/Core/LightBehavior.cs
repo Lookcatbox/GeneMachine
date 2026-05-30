@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Light
@@ -41,7 +42,7 @@ namespace Light
         private static void Func_1_3(Cell cell, Gene gene)
         {
             Envir env = SimulationCore.EnvirData[cell.px, cell.py];
-            cell.energy += env.Light / 10; // 光照50 → 获得5能量
+            Interlocked.Add(ref cell.energy, env.Light / 10); // 光照50 → 获得5能量
         }
 
         // ============================================================

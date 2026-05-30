@@ -30,7 +30,9 @@ public static class TerrainGenerator
         {
             for (int y = 1; y <= size; y++)
             {
-                int h = Mathf.Clamp(Mathf.RoundToInt(heightMap[x, y]), 0, 1000);
+                int minHeight = Mathf.RoundToInt(SimulationConfig.AltitudeMin);
+                int maxHeight = Mathf.RoundToInt(SimulationConfig.AltitudeMax);
+                int h = Mathf.Clamp(Mathf.RoundToInt(heightMap[x, y]), minHeight, maxHeight);
                 envirData[x, y].Height = h;
 
                 if (isLake[x, y])
@@ -96,7 +98,8 @@ public static class TerrainGenerator
                     layerWeight *= weightDecay;
                 }
 
-                map[x, y] = Mathf.Clamp01(value / maxWeight) * 1000f;
+                float t = Mathf.Clamp01(value / maxWeight);
+                map[x, y] = Mathf.Lerp(SimulationConfig.AltitudeMin, SimulationConfig.AltitudeMax, t);
             }
         }
     }

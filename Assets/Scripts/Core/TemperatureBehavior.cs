@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Temperature
@@ -47,7 +48,7 @@ namespace Temperature
             float maxTemp = SimulationCore.GetTempToleranceMaxFromUpgradeHash(upgradeHash);
             if (env.Temp >= minTemp && env.Temp <= maxTemp)
             {
-                cell.energy += 2;
+                Interlocked.Add(ref cell.energy, 2);
             }
         }
 

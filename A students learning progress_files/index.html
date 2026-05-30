@@ -1,0 +1,568 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!-- saved from url=(0075)https://mooc1.chaoxing.com/ananas/modules/video/index.html?v=2026-0510-1025 -->
+<html xmlns="http://www.w3.org/1999/xhtml" class="x-border-box x-strict" data-immersive-translate-page-theme="light"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><style class="vjs-styles-defaults">
+      .video-js {
+        width: 300px;
+        height: 150px;
+      }
+
+      .vjs-fluid {
+        padding-top: 56.25%
+      }
+    </style><style class="vjs-styles-dimensions"></style>
+
+<link href="./video-js.css" rel="stylesheet" type="text/css">
+<link href="./videojs-ans.css" rel="stylesheet" type="text/css">
+<link href="./videojs-test-ans.css" rel="stylesheet" type="text/css">
+<link href="./videojs-resolution-switcher.css" rel="stylesheet">
+    <link href="./zsCloud.css" rel="stylesheet">
+<link href="./index.css" rel="stylesheet">
+<link href="./ion.rangeSlider.min.css" rel="stylesheet">
+<style type="text/css">
+    .video-js .vjs-fullscreen-control{margin-right:0}
+    .vjs-icon-fullscreen-enter:before,.video-js .vjs-fullscreen-control .vjs-icon-placeholder:before{font-size:24px}
+    .video-js .vjs-time-tooltip,.video-js .vjs-mouse-display .vjs-time-tooltip,.video-js .vjs-tip{max-width:1000px!important}
+    .vjs-icon-fullscreen-enter:before,.video-js .vjs-fullscreen-control .vjs-icon-placeholder:before{content:"";width:40px;height:40px;background:url(/ananas/modules/video/fullBtn.png?v=1) no-repeat center center;background-size:20px 20px;text-align:center;display:block;top:0;left:3px}
+    .vjs-icon-fullscreen-exit:before,.video-js.vjs-fullscreen .vjs-fullscreen-control .vjs-icon-placeholder:before{content:"";width:40px;height:40px;background:url(/ananas/modules/video/closeFull.png?v=1) no-repeat center center;background-size:20px 20px;text-align:center;display:block;top:0;left:3px}
+</style>
+<script type="text/javascript" src="./domain(1).js.下载"></script>
+<script type="text/javascript" src="./flashchecker.js.下载"></script>
+<script type="text/javascript" src="./fileloader.js.下载"></script>
+    <script type="text/javascript" src="./import-all-classes(1).js.下载"></script><script src="./ServerHosts.js.下载"></script><script src="./all-classes.js.下载"></script>
+<script type="text/javascript" src="./ed_complete.js.下载"></script>
+<script type="text/javascript" src="./jquery.min(1).js.下载"></script>
+<script type="text/javascript" src="./jquery.nicescroll.min(1).js.下载"></script>
+<script src="./aplus_queue.js.下载" type="text/javascript"></script>
+    <script src="./echarts.min.js.下载" type="text/javascript"></script>
+    <script src="./watermark.js.下载" type="text/javascript"></script>
+<!--<script src="marker/video.js?v=1"></script>-->
+
+<!--videojs-->
+<script src="./video.min.js.下载" type="text/javascript"></script>
+<script src="./videojs_lang.js.下载" type="text/javascript"></script>
+<!--<script type="text/javascript" src="/ananas/video-js-7.2.2/lang/zh-CN.js?v=20180910"></script>-->
+    <script src="./index.js.下载" type="text/javascript"></script>
+    <script src="./import-serverHost.js.下载" type="text/javascript"></script>
+    <script src="./videojs-ext.min.js.下载" type="text/javascript"></script>
+    <script src="./common-lang.js.下载" type="text/javascript"></script>
+<script src="./videojs-markers.js.下载" type="text/javascript"></script>
+<script type="text/javascript" src="./jqcloud-1.0.4.js.下载"></script>
+<script type="text/javascript" src="./drag_div.js.下载"></script>
+<script src="./form.utils.js.下载" type="text/javascript"></script>
+
+
+<style>
+
+
+</style>
+<style data-id="immersive-translate-input-injected-css"></style></head>
+<body idpopup="bodyPopupId" class="x-body x-webkit x-chrome" id="ext-gen1049">
+<div id="tipDiv" style="display: none">
+    <div class="toolTipBox1" style="display: none"><i class="loadicon"><img width="100%" height="100%" src="./tips_pop.png"></i>该视频教师已设置限制：未完成任务点前无法拖动或定位进度，完成任务点后即可拖动复习。</div>
+</div>
+
+<div class="main clearfix">
+    <div class="prev_video_left">
+        <div id="loading" style="visibility: hidden;"></div>
+        <div id="note">
+            <div class="line1">
+                <div class="line2"></div>
+            </div>
+            <p class="tipStyle">视频转码失败，请使用其他软件另存后重新上传【9005】</p>
+        </div>
+        
+        <div class="fullScreenContainer">
+            <div class="rage_list" id="rage_list" style="right: 0px; display: none; height: 835px;"><!-- 高度自定 -->
+                <h3><span class="dmListTitle">弹幕列表</span><a class="dele icons" href="javascript:;" id="delete"></a></h3>
+                <div class="listHeader">
+                    <span class="h_time">时间</span>
+                    <span class="h_content">弹幕内容</span>
+                    <span class="h_send_name" style="display: none">发送人</span>
+                    <span class="h_send_time">发送时间</span>
+                </div>
+                <div id="boxscroll" style="height: 765px;">
+                    <ul id="danmulist">
+                    </ul>
+                </div>
+            </div>
+            <div id="reader" style="height: 835px;"><div crossorigin="Anonymous" class="video-js vjs-default-skin vjs-big-play-centered vjs-paused vjs-controls-enabled vjs-workinghover vjs-v7 vjs-user-active" id="video" lang="zh-cn" role="region" aria-label="视频播放器" tabindex="1"><video id="video_html5_api" class="vjs-tech" crossorigin="Anonymous" tabindex="-1" preload="none" src="https://s2.ananas.chaoxing.com/sv-w7/video/9c/55/80/6e8351c4681bf320ed7490af0debe5fd/sd.mp4?at_=1779544019245&amp;ak_=4eef434307fe05419a08c2e13bd74dad&amp;ad_=21029495de924909bad1fe9c68770f0e"></video><div class="x-container ans-timelineobjects x-container-default" id="ext-comp-1046" style="overflow: auto; visibility: hidden;"><span id="ext-comp-1046-outerCt" style="display:table;"><div id="ext-comp-1046-innerCt" style="display:table-cell;height:100%;vertical-align:top;" class=""></div></span></div><div class="vjs-poster" tabindex="-1" aria-disabled="false" style="background-image: url(&quot;https://p.ananas.chaoxing.com/star3/origin/a26e16b5ac8e769bba6bda57343b7d57.png&quot;);"></div><div class="vjs-bgmark"></div><div class="vjs-text-track-display" aria-live="off" aria-atomic="true"><div style="position: absolute; inset: 0px; margin: 1.5%;"></div></div><div class="vjs-loading-spinner" dir="ltr"><span class="vjs-control-text">视频播放器 is loading.</span></div><button class="vjs-big-play-button" type="button" title="播放视频" aria-disabled="false"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">播放视频</span></button><div class="vjs-control-bar" dir="ltr"><button class="vjs-play-control vjs-control vjs-button" type="button" title="播放" aria-disabled="false"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">播放</span></button><div class="vjs-playback-rate vjs-menu-button vjs-menu-button-popup vjs-control vjs-button vjs-hidden"><button class="vjs-playback-rate vjs-menu-button vjs-menu-button-popup vjs-button" type="button" aria-disabled="false" title="播放速度" aria-haspopup="true" aria-expanded="false" tabindex="-1"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">播放速度</span></button><div class="vjs-menu"><ul class="vjs-menu-content" role="menu"></ul></div><div class="vjs-playback-rate-value">倍速</div></div><div class="vjs-current-time vjs-time-control vjs-control"><span class="vjs-control-text">当前时间&nbsp;</span><span class="vjs-current-time-display" aria-live="off">14:38</span></div><div class="vjs-time-control vjs-time-divider"><div><span>/</span></div></div><div class="vjs-duration vjs-time-control vjs-control"><span class="vjs-control-text">时长&nbsp;</span><span class="vjs-duration-display" aria-live="off">0:00</span></div><div class="vjs-progress-control vjs-control"><div tabindex="-1" class="vjs-progress-holder vjs-slider vjs-slider-horizontal" role="slider" aria-valuenow="0.00" aria-valuemin="0" aria-valuemax="100" aria-label="进度小节" aria-valuetext="14:38 of -:-"><div class="vjs-load-progress"><span class="vjs-control-text"><span>加载完毕</span>: 0%</span></div><div class="vjs-mouse-display"><div class="vjs-time-tooltip"></div><div class="vjs-thumbnail-tooltip"></div></div><div class="vjs-play-progress vjs-slider-bar" style="width: 0%;"><div class="vjs-time-tooltip">14:38</div><div class="vjs-thumbnail-tooltip" style="right: -170px;"></div><span class="vjs-control-text"><span>进度</span>: 0%</span></div></div></div><div class="vjs-volume-panel vjs-control vjs-volume-panel-vertical"><button class="vjs-mute-control vjs-control vjs-button vjs-vol-3" type="button" title="静音" aria-disabled="false"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">静音</span></button><div class="vjs-volume-control vjs-control vjs-volume-vertical"><div tabindex="0" class="vjs-volume-bar vjs-slider-bar vjs-slider vjs-slider-vertical" role="slider" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="音量" aria-live="polite" aria-valuetext="100%"><div class="vjs-volume-level"><span class="vjs-control-text"></span></div></div><span class="vjsVolumeText">100%</span></div></div><div class="vjs-subs-caps-button vjs-menu-button vjs-menu-button-popup vjs-control vjs-button" style="display: none;"><button class="vjs-subs-caps-button vjs-menu-button vjs-menu-button-popup vjs-button" type="button" aria-disabled="false" title="字幕" aria-haspopup="true" aria-expanded="false" tabindex="-1" style="display: none;"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">字幕</span></button><div class="vjs-menu"><ul class="vjs-menu-content" role="menu"><li class="vjs-menu-item vjs-texttrack-settings" tabindex="-1" role="menuitem" aria-disabled="false"><span class="vjs-menu-item-text">字幕设定</span><span class="vjs-control-text" aria-live="polite">, 开启字幕设置弹窗</span></li><li class="vjs-menu-item" tabindex="-1" role="menuitemradio" aria-disabled="false" aria-checked="false"><span class="vjs-menu-item-text">关闭字幕</span><span class="vjs-control-text" aria-live="polite"></span></li><li class="vjs-menu-item vjs-subtitles-menu-item vjs-selected" tabindex="-1" role="menuitemradio" aria-disabled="false" aria-checked="true"><span class="vjs-menu-item-text">字幕1</span><span class="vjs-control-text" aria-live="polite">, 选择</span></li></ul></div></div><div class="vjs-menu-button vjs-menu-button-popup vjs-control vjs-button vjs-resolution-button vjs-playline-button" style="display: none;"><button class="vjs-menu-button vjs-menu-button-popup vjs-button" type="button" aria-disabled="false" aria-haspopup="true" aria-expanded="false" title="Playline" tabindex="-1"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">Playline</span></button><div class="vjs-menu"><ul class="vjs-menu-content" role="menu"><li class="vjs-menu-item vjs-selected" tabindex="-1" role="menuitem" aria-disabled="false"><span class="vjs-menu-item-text">公网1</span><span class="vjs-control-text" aria-live="polite"></span></li><li class="vjs-menu-item" tabindex="-1" role="menuitem" aria-disabled="false"><span class="vjs-menu-item-text">公网2</span><span class="vjs-control-text" aria-live="polite"></span></li></ul></div><span class="vjs-resolution-button-label">公网1</span></div><div class="vjs-menu-button vjs-menu-button-popup vjs-control vjs-button vjs-self-setting" style="display: block;"><button class="vjs-menu-button vjs-menu-button-popup vjs-button" type="button" aria-disabled="false" aria-haspopup="true" aria-expanded="false" title="设置" tabindex="-1"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">设置</span></button><div class="vjs-menu"><ul class="vjs-menu-content" role="menu"><li id="ext-gen1055"><div class="vjs_base_setting"><div class="videoTitle"><span>线路</span></div><ul class="video_line video_playline"><li index="0" class="vjs-sub-item active" id="ext-gen1056">公网1</li><li index="1" class="vjs-sub-item" id="ext-gen1057">公网2</li></ul><div class="videoTitle vjs-sub-title"><span>清晰度</span></div><ul class="video_line video_resolution"><li index="0" class="vjs-sub-item active" id="ext-gen1058">高清</li></ul><div class="video_setting_hotmap"><div class="videoTitle vjs_hotmap_title"><span>观看热度曲线</span><div class="zmSwitch swithOn hotmapSwitch"></div></div></div><div class="videoTitle vjs-sub-title"><span>字幕</span><div class="zmSwitch swithOn" id="ext-gen1059"></div></div><ul class="vjs-sub-ul video_line zmList clearfix"><li class="vjs-sub-item active" label="字幕1" id="ext-gen1060">字幕1</li></ul><div class="vjs-sub-setting-btn videoTitle toHighSetting" id="ext-gen1061"><span>高级设置</span><span class="rightArrow"></span></div></div><div class="vjs_advanced_setting"><div class="toZimuBx">
+								<span class="toZimu" id="ext-gen1063"><span class="rightArrow"></span>更多字幕设置</span>
+								<span class="resetBtn" id="ext-gen1062">重置</span>
+							</div>
+							<div class="itemLineBx marTop24">
+								<span class="leftFontWid">文字颜色</span>
+								<div class="rightbox">
+									<div class="selectBox vjs_font_color">
+										<p>白</p>
+										<ul>
+											<li data="#000" p_txt="黑" class="active"><a href="javascript:void(0)">黑</a></li>
+											<li data="#FFF" p_txt="白"><a href="javascript:void(0)">白</a></li>
+											<li data="#F00" p_txt="红"><a href="javascript:void(0)">红</a></li>
+											<li data="#0F0" p_txt="绿"><a href="javascript:void(0)">绿</a></li>
+											<li data="#00F" p_txt="蓝"><a href="javascript:void(0)">蓝</a></li>
+											<li data="#FF0" p_txt="黄"><a href="javascript:void(0)">黄</a></li>
+											<li data="#F0F" p_txt="紫红"><a href="javascript:void(0)">紫红</a></li>
+											<li data="#0FF" p_txt="青"><a href="javascript:void(0)">青</a></li>
+										</ul>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop12">
+								<span class="leftFontWid">文字不透明度</span>
+								<div class="rightbox">
+									<div class="dragBx">
+										<div class="dragCon">
+											<span class="dragClick"></span>
+											<span class="blueLine fontBule" style="width: 100%"></span>
+											<span class="dragStart"></span>
+											<span class="dragEnd"></span>
+											<div class="dragCircle" id="1" style="left:110px"></div>
+										</div>
+										<span class="dragFont fontTran">100%</span>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop24">
+								<span class="leftFontWid">背景颜色</span>
+								<div class="rightbox">
+									<div class="selectBox vjs_bgc">
+										<p>黑</p>
+										<ul>
+											<li data="#000" p_txt="黑" class="active"><a href="javascript:void(0)">黑</a></li>
+											<li data="#FFF" p_txt="白"><a href="javascript:void(0)">白</a></li>
+											<li data="#F00" p_txt="红"><a href="javascript:void(0)">红</a></li>
+											<li data="#0F0" p_txt="绿"><a href="javascript:void(0)">绿</a></li>
+											<li data="#00F" p_txt="蓝"><a href="javascript:void(0)">蓝</a></li>
+											<li data="#FF0" p_txt="黄"><a href="javascript:void(0)">黄</a></li>
+											<li data="#F0F" p_txt="紫红"><a href="javascript:void(0)">紫红</a></li>
+											<li data="#0FF" p_txt="青"><a href="javascript:void(0)">青</a></li>
+										</ul>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop12">
+								<span class="leftFontWid">背景不透明度</span>
+								<div class="rightbox">
+									<div class="dragBx">
+										<div class="dragCon">
+											<span class="dragClick"></span>
+											<span class="blueLine bgBlue"></span>
+											<span class="dragStart"></span>
+											<span class="dragMiddle"></span>
+											<span class="dragEnd"></span>
+											<div class="dragCircle" id="2"></div>
+										</div>
+										<span class="dragFont bgTran">0%</span>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop24">
+								<span class="leftFontWid">视窗颜色</span>
+								<div class="rightbox">
+									<div class="selectBox vjs_view_color">
+										<p>黑</p>
+										<ul>
+											<li data="#000" p_txt="黑" class="active"><a href="javascript:void(0)">黑</a></li>
+											<li data="#FFF" p_txt="白"><a href="javascript:void(0)">白</a></li>
+											<li data="#F00" p_txt="红"><a href="javascript:void(0)">红</a></li>
+											<li data="#0F0" p_txt="绿"><a href="javascript:void(0)">绿</a></li>
+											<li data="#00F" p_txt="蓝"><a href="javascript:void(0)">蓝</a></li>
+											<li data="#FF0" p_txt="黄"><a href="javascript:void(0)">黄</a></li>
+											<li data="#F0F" p_txt="紫红"><a href="javascript:void(0)">紫红</a></li>
+											<li data="#0FF" p_txt="青"><a href="javascript:void(0)">青</a></li>
+										</ul>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop12">
+								<span class="leftFontWid">视窗不透明度</span>
+								<div class="rightbox">
+									<div class="dragBx">
+										<div class="dragCon">
+											<span class="dragClick"></span>
+											<span class="blueLine viewBlue"></span>
+											<span class="dragStart"></span>
+											<span class="dragMiddle"></span>
+											<span class="dragEnd"></span>
+											<div class="dragCircle" id="3"></div>
+										</div>
+										<span class="dragFont viewTran">0%</span>
+									</div>
+								</div>
+							</div>
+							
+							<div class="videoTitle marTop24 fontBord">
+								<span>文字描边</span>
+								<div class="zmSwitch swithOn"></div>
+							</div>
+							<ul class="video_line fontBordList">
+								<li class="active" data="uniform">无</li>
+								<li data="raised">浮雕</li>
+								<li data="depressed">压低</li>
+								<li data="uniform">均匀</li>
+								<li data="dropshadow">下阴影</li>
+							</ul>
+							<div class="itemLineBx marTop24">
+								<span class="leftFontWid">字体</span>
+								<div class="rightbox">
+									<div class="selectBox vjs_sub_fontfamily">
+										<p value="0" title="字体">字体</p>
+										<ul style="bottom:30px;top:auto">
+											<li data="proportionalSansSerif" class="active" p_txt="比例无细体"><a href="javascript:void(0)">比例无细体</a></li>
+											<li data="monospaceSansSerif" p_txt="单间隔无细体"><a href="javascript:void(0)">单间隔无细体</a></li>
+											<li data="proportionalSerif" p_txt="比例细体"><a href="javascript:void(0)">比例细体</a></li>
+											<li data="monospaceSerif" p_txt="单间隔细体"><a href="javascript:void(0)">单间隔细体</a></li>
+											<li data="casual" p_txt="舒适"><a href="javascript:void(0)">舒适</a></li>
+											<li data="script" p_txt="手写体"><a href="javascript:void(0)">手写体</a></li>
+											<li data="small-caps" p_txt="小型大写字体"><a href="javascript:void(0)">小型大写字体</a></li>
+										</ul>
+									</div>
+								</div>
+							</div>
+							<div class="itemLineBx marTop24">
+								<span class="leftFontWid">字幕位置</span>
+								<div class="rightbox">
+									<div class="dragBx">
+										<div class="dragCon">
+											<span class="dragClick"></span>
+											<span class="blueLine zmBlue" style="width: 55%"></span>
+											<span class="dragStart"></span>
+											<span class="dragMiddle"></span>
+											<span class="dragEnd"></span>
+											<div class="dragCircle zmpDragCircle" style="left:50px" id="4"></div>
+										</div>
+										<span class="zmdragFont">适中</span>
+									</div>
+								</div>
+							</div></div></li></ul></div><span class="vjs-setting-button-label"></span></div><div class="vjs-menu-button vjs-menu-button-popup vjs-control vjs-button vjs-resolution-button" style="display: none;"><button class="vjs-menu-button vjs-menu-button-popup vjs-button" type="button" aria-disabled="false" aria-haspopup="true" aria-expanded="false" title="Quality" tabindex="-1"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">Quality</span></button><div class="vjs-menu"><ul class="vjs-menu-content" role="menu"><li class="vjs-menu-item vjs-selected" tabindex="-1" role="menuitem" aria-disabled="false"><span class="vjs-menu-item-text">高清</span><span class="vjs-control-text" aria-live="polite"></span></li></ul></div><span class="vjs-resolution-button-label">高清</span></div><button class="vjs-fullscreen-control vjs-control vjs-button" type="button" title="全屏" aria-disabled="false"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">全屏</span></button></div><div class="vjs-error-display vjs-modal-dialog vjs-hidden " tabindex="-1" aria-describedby="video_component_359_description" aria-hidden="true" aria-label="弹窗" role="dialog"><p class="vjs-modal-dialog-description vjs-control-text" id="video_component_359_description">This is a modal window.</p><div class="vjs-modal-dialog-content" role="document"></div></div><div class="vjs-modal-dialog vjs-hidden  vjs-text-track-settings" tabindex="-1" aria-describedby="video_component_365_description" aria-hidden="true" aria-label="字幕设定视窗" role="dialog"><p class="vjs-modal-dialog-description vjs-control-text" id="video_component_365_description">开始对话视窗。离开会取消及关闭视窗</p><div class="vjs-modal-dialog-content" role="document"><div class="vjs-track-settings-colors"><fieldset class="vjs-fg-color vjs-track-setting"><legend id="captions-text-legend-video_component_365">文字</legend><label id="captions-foreground-color-video_component_365" class="vjs-label">Color</label><select aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365"><option id="captions-foreground-color-video_component_365-White" value="#FFF" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-White">白</option><option id="captions-foreground-color-video_component_365-Black" value="#000" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Black">黑</option><option id="captions-foreground-color-video_component_365-Red" value="#F00" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Red">红</option><option id="captions-foreground-color-video_component_365-Green" value="#0F0" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Green">绿</option><option id="captions-foreground-color-video_component_365-Blue" value="#00F" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Blue">蓝</option><option id="captions-foreground-color-video_component_365-Yellow" value="#FF0" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Yellow">黄</option><option id="captions-foreground-color-video_component_365-Magenta" value="#F0F" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Magenta">紫红</option><option id="captions-foreground-color-video_component_365-Cyan" value="#0FF" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-color-video_component_365 captions-foreground-color-video_component_365-Cyan">青</option></select><span class="vjs-text-opacity vjs-opacity"><label id="captions-foreground-opacity-video_component_365" class="vjs-label">Transparency</label><select aria-labelledby="captions-text-legend-video_component_365 captions-foreground-opacity-video_component_365"><option id="captions-foreground-opacity-video_component_365-Opaque" value="1" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-opacity-video_component_365 captions-foreground-opacity-video_component_365-Opaque">不透明</option><option id="captions-foreground-opacity-video_component_365-SemiTransparent" value="0.5" aria-labelledby="captions-text-legend-video_component_365 captions-foreground-opacity-video_component_365 captions-foreground-opacity-video_component_365-SemiTransparent">半透明</option></select></span></fieldset><fieldset class="vjs-bg-color vjs-track-setting"><legend id="captions-background-video_component_365">背景</legend><label id="captions-background-color-video_component_365" class="vjs-label">Color</label><select aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365"><option id="captions-background-color-video_component_365-Black" value="#000" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Black">黑</option><option id="captions-background-color-video_component_365-White" value="#FFF" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-White">白</option><option id="captions-background-color-video_component_365-Red" value="#F00" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Red">红</option><option id="captions-background-color-video_component_365-Green" value="#0F0" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Green">绿</option><option id="captions-background-color-video_component_365-Blue" value="#00F" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Blue">蓝</option><option id="captions-background-color-video_component_365-Yellow" value="#FF0" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Yellow">黄</option><option id="captions-background-color-video_component_365-Magenta" value="#F0F" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Magenta">紫红</option><option id="captions-background-color-video_component_365-Cyan" value="#0FF" aria-labelledby="captions-background-video_component_365 captions-background-color-video_component_365 captions-background-color-video_component_365-Cyan">青</option></select><span class="vjs-bg-opacity vjs-opacity"><label id="captions-background-opacity-video_component_365" class="vjs-label">Transparency</label><select aria-labelledby="captions-background-video_component_365 captions-background-opacity-video_component_365"><option id="captions-background-opacity-video_component_365-Opaque" value="1" aria-labelledby="captions-background-video_component_365 captions-background-opacity-video_component_365 captions-background-opacity-video_component_365-Opaque">不透明</option><option id="captions-background-opacity-video_component_365-SemiTransparent" value="0.5" aria-labelledby="captions-background-video_component_365 captions-background-opacity-video_component_365 captions-background-opacity-video_component_365-SemiTransparent">半透明</option><option id="captions-background-opacity-video_component_365-Transparent" value="0" aria-labelledby="captions-background-video_component_365 captions-background-opacity-video_component_365 captions-background-opacity-video_component_365-Transparent">透明</option></select></span></fieldset><fieldset class="vjs-window-color vjs-track-setting"><legend id="captions-window-video_component_365">视窗</legend><label id="captions-window-color-video_component_365" class="vjs-label">Color</label><select aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365"><option id="captions-window-color-video_component_365-Black" value="#000" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Black">黑</option><option id="captions-window-color-video_component_365-White" value="#FFF" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-White">白</option><option id="captions-window-color-video_component_365-Red" value="#F00" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Red">红</option><option id="captions-window-color-video_component_365-Green" value="#0F0" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Green">绿</option><option id="captions-window-color-video_component_365-Blue" value="#00F" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Blue">蓝</option><option id="captions-window-color-video_component_365-Yellow" value="#FF0" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Yellow">黄</option><option id="captions-window-color-video_component_365-Magenta" value="#F0F" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Magenta">紫红</option><option id="captions-window-color-video_component_365-Cyan" value="#0FF" aria-labelledby="captions-window-video_component_365 captions-window-color-video_component_365 captions-window-color-video_component_365-Cyan">青</option></select><span class="vjs-window-opacity vjs-opacity"><label id="captions-window-opacity-video_component_365" class="vjs-label">Transparency</label><select aria-labelledby="captions-window-video_component_365 captions-window-opacity-video_component_365"><option id="captions-window-opacity-video_component_365-Transparent" value="0" aria-labelledby="captions-window-video_component_365 captions-window-opacity-video_component_365 captions-window-opacity-video_component_365-Transparent">透明</option><option id="captions-window-opacity-video_component_365-SemiTransparent" value="0.5" aria-labelledby="captions-window-video_component_365 captions-window-opacity-video_component_365 captions-window-opacity-video_component_365-SemiTransparent">半透明</option><option id="captions-window-opacity-video_component_365-Opaque" value="1" aria-labelledby="captions-window-video_component_365 captions-window-opacity-video_component_365 captions-window-opacity-video_component_365-Opaque">不透明</option></select></span></fieldset></div><div class="vjs-track-settings-font"><fieldset class="vjs-font-percent vjs-track-setting"><legend id="captions-font-size-video_component_365" class="">字体尺寸</legend><select aria-labelledby="captions-font-size-video_component_365"><option id="captions-font-size-video_component_365-50" value="0.50" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-50">50%</option><option id="captions-font-size-video_component_365-75" value="0.75" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-75">75%</option><option id="captions-font-size-video_component_365-100" value="1.00" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-100">100%</option><option id="captions-font-size-video_component_365-125" value="1.25" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-125">125%</option><option id="captions-font-size-video_component_365-150" value="1.50" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-150">150%</option><option id="captions-font-size-video_component_365-175" value="1.75" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-175">175%</option><option id="captions-font-size-video_component_365-200" value="2.00" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-200">200%</option><option id="captions-font-size-video_component_365-300" value="3.00" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-300">300%</option><option id="captions-font-size-video_component_365-400" value="4.00" aria-labelledby="captions-font-size-video_component_365 captions-font-size-video_component_365-400">400%</option></select></fieldset><fieldset class="vjs-edge-style vjs-track-setting"><legend id="video_component_365" class="">字体边缘样式</legend><select aria-labelledby="video_component_365"><option id="video_component_365-None" value="none" aria-labelledby="video_component_365 video_component_365-None">无</option><option id="video_component_365-Raised" value="raised" aria-labelledby="video_component_365 video_component_365-Raised">浮雕</option><option id="video_component_365-Depressed" value="depressed" aria-labelledby="video_component_365 video_component_365-Depressed">压低</option><option id="video_component_365-Uniform" value="uniform" aria-labelledby="video_component_365 video_component_365-Uniform">均匀</option><option id="video_component_365-Dropshadow" value="dropshadow" aria-labelledby="video_component_365 video_component_365-Dropshadow">下阴影</option></select></fieldset><fieldset class="vjs-font-family vjs-track-setting"><legend id="captions-font-family-video_component_365" class="">字体库</legend><select aria-labelledby="captions-font-family-video_component_365"><option id="captions-font-family-video_component_365-ProportionalSansSerif" value="proportionalSansSerif" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-ProportionalSansSerif">比例无细体</option><option id="captions-font-family-video_component_365-MonospaceSansSerif" value="monospaceSansSerif" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-MonospaceSansSerif">单间隔无细体</option><option id="captions-font-family-video_component_365-ProportionalSerif" value="proportionalSerif" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-ProportionalSerif">比例细体</option><option id="captions-font-family-video_component_365-MonospaceSerif" value="monospaceSerif" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-MonospaceSerif">单间隔细体</option><option id="captions-font-family-video_component_365-Casual" value="casual" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-Casual">舒适</option><option id="captions-font-family-video_component_365-Script" value="script" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-Script">手写体</option><option id="captions-font-family-video_component_365-SmallCaps" value="small-caps" aria-labelledby="captions-font-family-video_component_365 captions-font-family-video_component_365-SmallCaps">小型大写字体</option></select></fieldset></div><div class="vjs-track-settings-controls"><button class="vjs-default-button" title="恢复全部设定至预设值">重启<span class="vjs-control-text"> 恢复全部设定至预设值</span></button><button class="vjs-done-button">完成</button></div></div><button class="vjs-close-button vjs-control vjs-button" type="button" aria-disabled="false" title="关闭弹窗"><span aria-hidden="true" class="vjs-icon-placeholder"></span><span class="vjs-control-text" aria-live="polite">关闭弹窗</span></button><p class="vjs-control-text">结束对话视窗</p></div><div class="x-component ans-timelineobjectsbg x-component-default" id="ext-comp-1047" style="display: none;"></div></div></div>
+            <div class="danmuChannel" id="danmuChannel">
+                <div class="channel" id="channel_0"></div>
+                <div class="channel" id="channel_1"></div>
+                <div class="channel" id="channel_2"></div>
+                <div class="channel" id="channel_3"></div>
+            </div>
+        </div>
+        <div class="sp_function" style="height: 66px;">
+            <div class="danmuDiv">
+                <div class="sp_tanmu fl sp_tanmu_blue catalog_tishi80">
+                    <div class="bntHoverPos"><span class="bntHoverEditor">关闭弹幕</span><i class="bntHoverArrow"></i></div>
+                </div>
+                <div class="dm-settings fl">
+                    <i></i>
+                    <div class="settings-pop">
+                        <div class="settings-container">
+                            <div class="set-title">
+                                <span>弹幕设置</span>
+                                <button>重置</button>
+                            </div>
+                            <div class="set-content">
+                                <div class="range-container">
+                                    <p class="setFontSize">字号</p>
+                                    <input class="single-slider">
+                                    <div class="rangeVal" id="rangeVal1">标准</div>
+                                </div>
+                                <div class="range-container">
+                                    <p class="setBgPercent">不透明度</p>
+                                    <input class="slider2">
+                                    <div class="rangeVal" id="rangeVal2">80%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="triangle-container">
+                            <div class="triangle"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="sp_barrage fl catalog_tishi80"><div class="bntHoverPos"><span class="bntHoverEditor">弹幕列表</span><i class="bntHoverArrow"></i></div></div>
+                <div class="sp_video_form fl">
+                    <input autocomplete="off" class="sp_video_input" id="barragetext" name="text" type="text" value="">
+                    <div class="sp_expr fl">
+                        <div class="sp_expr_con">
+                            <ul class="sp_expr_list">
+                                <li class="sp_expr_ico sp_expr_zt" value="@赞同@">赞同</li>
+                                <li class="sp_expr_ico sp_expr_bzt" value="@不赞同@">不赞同</li>
+                                <li class="sp_expr_ico sp_expr_gd" value="@感动@">感动</li>
+                                <li class="sp_expr_ico sp_expr_yh" value="@听不懂@">听不懂</li>
+                                <li class="sp_expr_ico sp_expr_xh" value="@讲得好@">讲得好</li>
+                                <li class="sp_expr_ico sp_expr_gz" value="@鼓掌@">鼓掌</li>
+                                <li class="sp_expr_ico sp_expr_yq" value="@有趣@">有趣</li>
+                                <li class="sp_expr_ico sp_expr_hn" value="@好难@">好难</li>
+                            </ul>
+                            <i class="sp_expr_arrow"></i>
+                        </div>
+                    </div>
+                </div>
+                <a class="ed_btn ed_btn_60 fs14 fl sp_video_bnt" href="javascript:;" id="sendbarrage">发送</a>
+            </div>
+            <!--<div class="sp_agree fl catalog_tishi60"><div class="bntHoverPos"><span class="bntHoverEditor">赞同</span><i class="bntHoverArrow"></i></div></div>-->
+            <div aria-hidden="true" class="writeNote_vid fr" tabindex="-1" style="display: block;">
+                <span class="writeNote_vid_edit">写笔记</span>
+                <div class="writeNote_vid_con">
+                    <div class="writeNote_vid_box">
+                        <div class="writeNote_vid_text">可边看边记，笔记会标记视频时间点</div>
+                        <div class="writeNote_vid_bnt"><a aria-hidden="true" class="writeNote_vid_blue" href="javascript:;" tabindex="-1">知道了</a></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    <div class="zsCloud old" style="display: block;">
+        <div class="zsCloud_head">
+            <h2 class="zsCloud_h2">知识点</h2>
+            <div class="zsCloud_down" style="display: none">收起</div>
+        </div>
+        <div class="zsCloud_label">
+            <ul class="zsCloud_ul"><li><span class="zsCloud_span topicId173387725" onclick="markersPlayer(this)">新时代维护政治安全的途径和方法 </span></li></ul>
+        </div>
+        <div class="zsCloud_body" style="display: none">
+            <h3 class="zsCloud_h3">词云图
+                <span class="zsCloud_ai_tips">内容由AI生成，仅供参考</span>
+            </h3>
+            <div class="zsCloud_con" id="word_cloud"></div>
+        </div>
+    </div>
+        <div class="prev_detail_cards" style="display: none">
+            <div class="card_tabs_box">
+                <ul class="card_tabs_list">
+                    <li class="videoSummaryBtn show active" onclick="setTab(this)">视频摘要</li>
+                    <li class="knowledgeTabBtn" onclick="setTab(this)">知识点</li>
+                    <li class="videoMindmap" onclick="setTab(this)">思维导图</li>
+                </ul>
+                <span class="ai-promt-info" style="display: none;position: absolute;">内容由AI生成，仅供参考</span>
+                <div class="pack-btn">
+                    <span>展开</span><i></i>
+                </div>
+            </div>
+            <div class="card_all_content_box" style="display: none;">
+                <div class="item_content_box videoSumBox" style="display: none">
+                    <div class="top-btn">
+                        <div class="edit_btn" onclick="showVideoSummary()" style="display: none;">
+                            <i></i>编辑
+                        </div>
+                        <div class="sum_normal_btn add-btn" onclick="addNoteText()">
+                            <i></i>添加到笔记
+                        </div>
+                    </div>
+                    <div class="video_summary">
+                        <span class="copy-btn" onclick="copyContent()"><i></i></span>
+                        <p class="summary-text"></p>
+                    </div>
+                    <div class="loading-box">
+                        <span class="loading-img"></span><span>解析中…</span>
+                    </div>
+                    <div class="reload-box">
+                        <img alt="" src="./icon-warn.png">
+                        <p>解析失败</p>
+                        <div class="reload-btn">立即重试</div>
+                    </div>
+                </div>
+                <div class="item_content_box zsCloudBox" style="display: none;">
+                    <div class="zsCloud new" style="display: none">
+                        <div class="zsCloud_label">
+                            <ul class="zsCloud_ul"><li><span class="zsCloud_span topicId173387725" onclick="markersPlayer(this)">新时代维护政治安全的途径和方法 </span></li></ul>
+                        </div>
+                        <div class="zsCloud_body" style="display: none">
+                            <div class="zsCloud_con" id="word_cloud_new">
+                                <div class="min_map_empty">
+                                    <img alt="" src="./empty.png">
+                                    <p>暂无内容</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="item_content_box mindmapBox" style="display: none;">
+                    <div class="mind_map_box">
+                        <div class="mind_normal_btn full_screen" onclick="fullAiConDiv()">
+                            <i></i>全屏
+                        </div>
+                        <div class="min_map_iframe">
+                            <iframe frameborder="0" height="258" id="mindmap" src="./saved_resource(6).html" width="100%"></iframe>
+                        </div>
+<!--                        <div class="min_map_empty">-->
+<!--                            <img alt="" src="/ananas/css/empty.png">-->
+<!--                            <p>暂无内容</p>-->
+<!--                        </div>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="prev_video_right">
+        <div class="top_title">
+            <h5>分段总结<span class="ai-promt-info">内容由AI生成，仅供参考</span></h5>
+            <span class="close-btn" onclick="hideRightPrev()"></span>
+        </div>
+        <div class="loading-box" style="display: none;">
+            <span class="loading-img"></span><span>解析中…</span>
+        </div>
+        <div class="reload-box" style="display: none;">
+            <img alt="" src="./icon-warn.png">
+            <p>解析失败</p>
+            <div class="reload-btn">立即重试</div>
+        </div>
+        <div class="sum_btns_box">
+            <div class="sum_left-btn">
+                <div class="sum_normal_btn copy-btn" onclick="copySegmentSum()">
+                    <i></i>复制
+                </div>
+                <div class="sum_normal_btn edit-btn" onclick="showSegmentSummary()" style="display: none;">
+                    <i></i>编辑
+                </div>
+                <div class="sum_normal_btn add-btn stu-addnote-btn" onclick="allAddNote()">
+                    <i></i>添加到笔记
+                </div>
+                <div class="sum_normal_btn add-btn stu-addnote-btn" onclick="someAddNote()">
+                    <i></i>摘取标记内容
+                </div>
+            </div>
+            <div class="sum_pack-btn active">
+                <span>折叠</span>
+                <i></i>
+            </div>
+        </div>
+        <div class="sum_list_box"></div>
+    </div>
+
+    <div class="prev_video_right_New" style="display: none">
+        <div class="top_title">
+            <div class="ltip" style="margin-right: 8px;">
+                <p class="ltip__content">小星共找到 <span id="subTitleNum">0</span> 个与该知识点相关的片段。您可点击播放并选择对应片段，系统将自动为您跳转至该片段对应位置。</p>
+                <span class="ltip__icon"></span>
+            </div>
+
+            <span class="close-btn" onclick="hideRightPrev()"></span>
+        </div>
+
+        <div class="sum_list_box"></div>
+    </div>
+
+    <!--字幕 start-->
+    <div class="qSubtit" style="display: none">
+        <div class="qSubtit_box">
+            <div class="qSubtit_tips">仅展示和知识点相关的字幕片段</div>
+            <div class="qSubtit_list">
+            </div>
+        </div>
+    </div>
+    <!--字幕 end-->
+</div>
+<script type="text/javascript">
+    $(window).resize(function () {
+        //检测360小窗口播放动作标识
+    	if($("body[idpopup = 'bodyPopupId']").css ("overflow-y")=="hidden"){
+    		//警告用户
+    		alert('不支持在小窗口播放，请关闭小窗口刷新网页重试！');
+    	}
+    });
+    var stopNum = 0;
+    var stopId;
+    function tabIndexAttr() {
+        stopNum ++;
+        if (stopNum > 5 || $(".vjs-progress-holder.vjs-slider.vjs-slider-horizontal").length > 0){
+            clearInterval(stopId);
+            $(".vjs-progress-holder.vjs-slider.vjs-slider-horizontal").attr("tabindex","-1")
+            $("button.vjs-menu-button.vjs-menu-button-popup.vjs-button").attr("tabindex","-1")
+        }
+    }
+    window.onload = function(){
+        stopId = setInterval(tabIndexAttr, 1000);
+        if (getCookie("writenote")) {
+            $(".writeNote_vid_con").hide();
+        }
+        $(".writeNote_vid_blue").on("click", function (){
+            $(".writeNote_vid_con").hide();
+            if (getCookie("writenote") == "yes") {
+                return;
+            }
+            Ext.setCookie("writenote", "yes");
+        })
+    }
+
+    // 定义递归函数，接受要查找其父级元素的元素、要查找的父级元素的标记名称以及（可选）最大深度参数（默认为6），并返回具有指定标记名称的父级元素或 null。
+    function findParent(element, parentTag, maxDepth = 6, currentDepth = 0) {
+        // if("$!{isAccessibleCustomFid}" != "1"){
+        //     return;
+        // }
+        // 如果当前元素不存在或递归深度达到了最大值，则返回 null。
+        if (!element || currentDepth === maxDepth) {
+            return null;
+        }
+
+        // 获取当前元素的父级元素。
+        var parent = element.parentElement;
+
+        // 如果父级元素存在且具有指定的标记名称，则返回该元素。
+        if (parent && parent.tagName.toLowerCase() === parentTag.toLowerCase()) {
+            return parent;
+        }
+
+        // 否则，递归调用该函数，传入父级元素作为参数，以查找具有指定标记名称的父级元素。
+        return findParent(parent, parentTag, maxDepth, currentDepth + 1);
+    }
+
+    // 获取要查找其父级元素的元素。
+    var childIframeElement = window.frameElement;
+
+    if (childIframeElement) {
+        // 调用 findParent 函数以查找具有最近的 p 标记名称的父级元素。
+        var parentElement = findParent(childIframeElement, 'p');
+        // 检查是否找到了父级元素
+        if (parentElement) {
+            parentElement.setAttribute("tabindex","-1")
+        }
+    }
+    $(function () {
+        if(isEn){
+            $('#tipDiv .toolTipBox1').html('The teacher of this video has set a restriction: You cannot drag or seek the progress before completing the task points. Once you have completed the task points, you can drag to review.');
+            $(".writeNote_vid_edit").text('Write a note');
+            $(".writeNote_vid_text").text("Click \'mark\' to continue inserting the current video playback time point");
+            $(".writeNote_vid_blue").text("Got it")
+            $(".zsCloud_body .zsCloud_h3").text("Word cloud diagram")
+            $(".zsCloud_head .zsCloud_h2").text("Knowledge")
+            $(".zsCloud_head .zsCloud_down").text("Fold")
+            $("#sendbarrage").text("Send")
+            $(".sp_barrage .bntHoverEditor,.dmListTitle").text("Bullet List")
+            $(".sp_expr_list .sp_expr_zt").text("Agree")
+            $(".sp_expr_list .sp_expr_bzt").text("Disagree")
+            $(".sp_expr_list .sp_expr_gd").text("Moving")
+            $(".sp_expr_list .sp_expr_yh").text("Doubt")
+            $(".sp_expr_list .sp_expr_xh").text("Well")
+            $(".sp_expr_list .sp_expr_gz").text("Applause")
+            $(".sp_expr_list .sp_expr_yq").text("Amusing")
+            $(".sp_expr_list .sp_expr_hn").text("Hard")
+            $(".set-title>span").text("Bullet Chat Settings");
+            $(".set-title>button").text("Reset");
+            $(".set-content .setFontSize").text("Font size");
+            $(".set-content .setBgPercent").text("Opacity");
+            $(".set-content #rangeVal1").text("Normal");
+            $(".rage_list .listHeader .h_time").text("Time");
+            $(".rage_list .listHeader .h_content").text("Contents");
+            $(".rage_list .listHeader .h_send_name").text("Sender");
+            $(".rage_list .listHeader .h_send_time").text("Sending time");
+            $(".sp_tanmu.sp_tanmu_blue .bntHoverEditor").text("Close bullet");
+        }else if(isTw){
+            $('#tipDiv .toolTipBox1').text('該視頻教師已設置限制：未完成任務點前無法拖動或定位進度，完成任務點后即可拖動復習');
+        }
+
+        $('.main').on('input', '.sp_video_input', function () {
+            $('.sp_video_input').not(this).val($(this).val());
+        });
+
+        // 分段总结展开收起
+        $('.prev_video_right').on('click','.sum_pack-btn',function () {
+            if($(this).hasClass('active')) {
+                $(this).removeClass('active');
+                $(this).find('span').text('展开')
+                $(".sum_list_box .sum_item_card .sum_title").css("display", "-webkit-box");
+                $('.prev_video_right').find('.sum_list_box .sum_txt').slideUp(150);
+            } else {
+                $(this).addClass('active');
+                $(this).find('span').text('折叠')
+                $(".sum_list_box .sum_item_card .sum_title").css("display", "none");
+                $('.prev_video_right').find('.sum_list_box .sum_txt').slideDown(150);
+            }
+        })
+    });
+</script>
+
+</body></html>

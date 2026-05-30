@@ -1,0 +1,221 @@
+var language = {
+    'en': {'report':'Report','timeSelect':'Time select','noParentNode':'No parent node','parentNode':'Parent node','undo':'Undo', 'redo':'Redo', 'Bold' : 'Bold', 'underline': 'Underline', 'Strikethrough': 'Strikethrough', 'Overline': 'Overline', 'Italic': 'Italic', 'Number': 'Number',
+        'Catalog': 'Catalog', 'Background': 'Highlight', 'packUp': 'Fold', 'Tables': 'Tables', 'Template': 'Template', 'Color': 'Color', 'AlignLeft': 'Left',
+        'AlignRight': 'Right', 'Center': 'Center', 'Justify':'Align both ends', 'AddIndent': 'Add', 'ReduceIndent': 'Reduce', 'Spacing': 'Spacing', 'SimSun': 'SimSun',
+        'SimKai': 'SimKai', 'microsoftYaHei': 'Microsoft YaHei', 'SimHei': 'SimHei', 'SimLi': 'SimLi', 'Picture': 'Picture', 'Link': 'Link', 'File': 'File',
+        'Reading': 'Reading', 'Live': 'Live', 'CXClass': 'Class', 'Video': 'Video', 'Books': 'Books', 'Attachments': 'Attachments', 'Quiz': 'Quiz', 'Discussion': 'Topic',
+        'expandReading': 'Expanding', 'Symbols': 'Symbols', 'Formulas': 'Formulas', 'FormulasBeta': 'Formulas beta', 'Audio': 'Audio', 'readingLink': 'Pages', 'Flash': 'Flash',
+        'Resources': 'Resources', 'ChaoxingVideo': 'Online Video', 'CXDiscovery': 'Discovery', 'CXJournals': 'Journals', 'ExternalLinks': 'External Links',
+        'input': 'Input', 'SchoolResources': 'School Resources', 'ExternalResources': 'External Resources', '3DResources': '3D Resources', 'Recording': 'Recording',
+        'Survey': 'Survey', 'Underline': 'Underline', 'Format': 'Format', 'ClearFormatting': 'Clear Formatting', 'FormatPainter': 'Format Painter', 'More': 'More',
+        'Plugin': 'Plug-in', 'Undo': 'Undo', 'Redo': 'Redo', 'DownloadTools': 'Tools', 'onlinePreview': 'Online', 'appPreview': 'APP', 'LocalUpload': 'Local Upload', 'CloudDisk': 'Cloud Disk',
+        'relatePoint': 'Knowledge points', 'taskPoint': 'Task', 'Barrage': 'Barrage', 'playCurrent': 'Play in situ', 'download':'Download', 'downloadCard': 'Download', 'fold': 'Fold', 'unFold': 'Unfold',
+        'Watch': 'Watch', 'Edit': 'Edit', 'liveDetails': 'Live details', 'forFinish': 'for finish', 'Check': 'Check', 'preview': 'Preview', 'open': 'Open',
+        'deleteWorkTip': 'Once deleted, the homework is not recoverable. Are you sure to delete？', 'deleteFailed': 'Delete failed: ', 'noDrag': 'No drag', 'noSwitch': 'No switch',
+        'knowledgePoint': 'Knowledge',
+        'graphDelete': 'Confirm deletion of chapter knowledge graph?',
+        'beSureDelete': 'Deleting the content will delete all the class students\' learning records at the same time. Statistics are delayed to varying degrees depending on class size. If this content has been linked to knowledge points, the synchronized content in micro-lessons will also be deleted. Are you sure to delete?',
+        'secondsForFinished': 'seconds to complete',
+        'limitTurnTime': 'Limit turning time',
+        'videoJobTipTime':'Requirements: Watch ≥90% of the video,',
+        'videoJobTipFastForward':'no fast-forward,',
+        'videoJobTipDrag':'no drag,',
+        'videoJobTipWin':'the page cannot be minimized,',
+        'finishConditionTip':'condition',
+        'seconds': 'seconds',
+        'cancelTaskTip': 'Canceling the task point will delete all the class students\' learning records at the same time. Are you sure to delete?', 'speed': 'Speed', 'endMoreThanStart' : 'The end page number cannot be less than the start page number',
+        'endLessTotal': 'The end page number cannot be more than the total page number', 'saveToCloudDisk': 'Save to the cloud disk (if you are not satisfied with the video, please save to the cloud disk and edit it)',
+        'Saving': 'Saving', 'Vote': 'Vote', 'compositionChapters': 'Composition chapters', 'courseChapters': 'Course chapters', 'remarks': 'Remarks', 'note': 'Note',
+        'firstNotEdit': 'First-level catalog does not allow editing content', 'uploadCover': 'Upload cover', 'fileUploading': 'Uploading file', 'coverUploading': 'Uploading cover',
+        'histotyVersion': 'Historical version query', 'addPeer': 'Add peer catalog', 'addSub': 'Add subcatalog', 'moveUp': 'Move up', 'moveDown': 'Move down', 'moveTo': 'Move to', 'selectLast': 'Select the last',
+        'importCatalog': 'Import catalog', 'labelReuse': 'Label reuse', 'sameCatalog': '(New catalog is the same as the previous catalog label)', 'quickImport': 'Quick import', 'templateImport': 'Template import',
+        'eachRow': 'Each row is filled with a catalog. The level is divided into two spaces, with only three levels.', 'clearInput': 'Clear', 'forExample': 'For example: ', 'levelFist': 'Level 1 catalog', 'levelSecond': 'Level 2 catalog',
+        'levelThird': 'Level 3 catalog', 'import': 'Import', 'cancel': 'Cancel', 'createFileByImport': 'Create a file in the specified format by importing', 'composition': 'Composition', 'course': 'Course',
+        'downloadNewTemplate': 'Please download the latest template files and fill in the rules in the template file strictly. The file should be encoded with UTF-8 encoding, otherwise there will be a garbled code.',
+        'selectAndUpload': 'Select file and upload', 'downloadLatest': 'Download the latest template','richText': 'Rich text', 'selectCourseware': 'Please select the courseware type to add content',
+        'noTitle': 'No title', 'ok': 'OK', 'confirm': 'Confirm', 'text': 'Text', 'loading': 'Loading...','warning': 'Warning', 'switchLabelFailed': 'Failed to switch label. Please refresh and try again...',
+        'movingLabel': 'Moving label...', 'movingLabelFailed': 'Move label failed...', 'saveFailed': 'Save failed, click OK to save again, click Cancel to abandon save', 'operationFailed': 'Operation failed...',
+        'waitingForComplete': 'Waiting for operation to complete...', 'newCatalog': 'New course catalog', 'newCompositionCatalog': 'New composition catalog',
+        'deleteTip': 'If the subcatalogs exist in this catalog, they will be deleted together, are you sure to delete them?',
+        'saveSuccess': 'Successfully', 'duplicateTaskPointTip': 'The chapter contains duplicate task points. Please check and save.', 'catalog': 'catalog.', 'textUploading': 'Uploading text',
+        'loadingFailed': 'Loading failed...', 'deleteCardTip': 'Once deleted, it is not recoverable. Are you sure to delete？', 'transcodingFailed': ' transcoding failed, please save it with other software and upload it again【9005】',
+        'transcoding': ' is transcoding, you do not need to wait on this page【9001】', 'uploadingBy': ' uploading【9002】', 'loadTimeOut': ' load timeout, please refresh the page【9003】', 'loadingFailedByFile': ' load failed, please try again later【9004】',
+        'validateFile': 'Validating file...', 'Quantity': 'Quantity: ', 'create': 'Create','videoSaveSuccess': 'The video has been saved to your cloud disk', 'videoSaveFailed': 'Save failed. Please try again later', 'videoSave': 'Saving',
+        'saveBefore': 'Save before inserting objects', 'copyFailed': 'Copy failed', 'requestFailed': 'Request failed', 'editFailed': 'Edit failed',
+        'localUpload': 'Local Upload', 'cloudDisk': 'Cloud Disk', 'resource': 'Resource', 'over': 'Over ', 'use': ' please use ', 'cxClient': 'Superstar app ', 'uploadFiles': 'to upload files', 'support': 'Supported formats include:',
+        'readAndAccept': 'Uploading files means that I have read and accepted ', 'userAgreement': 'the user agreement', 'overTip': 'Please use Cloud Disk client to upload files over 1000mb', 'allFormat': 'All formats', 'exception': 'Cloud disk upload exception',
+        'sameTitleAndType': 'Existing files with the same name and type. Please modify the file name and upload again.', 'cloudOver': 'Your cloud disk space is out of use. Please clean up space.', 'uploadFailed': 'Upload failed', 'serverFailed': 'Server processing failed',
+        'noResult': 'No results', 'upload': 'Upload', 'uploadAgain': 'Upload again', 'moreNum': 'Batch insert quantity cannot be more than 10', 'libraryEmpty': 'No files in resource library. You can add files to the course resources',
+        'getAddress': 'Please wait for the address', 'getAddressFailed': 'Get address failed', 'noZt': 'No compositions can be added. Please add the composition in the resource module first.', 'toAdd': 'Add to Resources',
+        'visualEditing': 'Visual editing', 'sourceEdit': 'Source code editing', 'deleteChapterTip': 'Deleting this catalog will delete all subcatalogs under this catalog ', 'deleteChapterConfirmTip': 'Once deleted, it is not recoverable. Are you sure to delete？',
+        'liveStreamer': 'Streamer', 'liveUnplayed': 'Unplayed', 'liveLiving': 'Living', 'liveFinished': 'Finished', 'livePlayback': 'Playback', 'liveLivingTip': 'After watching the live, you can complete the task point.',
+        'liveNotBack': 'The live cannot be watched back', 'replace': 'Replace', 'cloudClass': 'Cloud class','YRResources':'Resources','tabDeleteTips':'Deleting this tab will also delete the contents and cannot be restored. Confirm the deletion？',
+        'taskPointText':'Task point','taskPointCompleteText':'Task completed','openLinkText':'Open the link','delete':'delete','unplayInSitu':'Unplay in situ','noResourceTips1':'No resource, please click','noResourceTips2':'Add','noResourceTips3':'resources',
+        'overLayerTip':'Create a maximum of seven level directories','previewTime':'Preview Time:','zbTip1':'The task point can be completed by watching up to ','zbTip2':'% of the total duration. Please do not minimize the page or switch to another webpage while watching, as these actions may cause the viewing time to not be recorded. (There is a delay in viewing duration statistics, please be patient and check the next day)',
+        'zbTip3':'% of the total duration of the live broadcast. Please do not minimize the page or switch to another webpage while watching, as these actions may cause the viewing time to not be recorded. And the percentage data can be viewed after the live broadcast ends',
+        'zbTip4':'% of the total duration of the live broadcast. Please do not minimize the page or switch to another webpage while watching. as these actions may cause the viewing time to not be recorded. You have watched', 'zbTip5':' minutes (the duration is updated every 5 minutes),  and the percentage data can be viewed after the live broadcast',
+        'zbTip6':' minutes (duration is updated every 5 minutes)','zbTip7':' minutes (the duration is updated every 5 minutes), and the current viewing progress is ','zbTip8':'You have watched ','zbTip9':'% of the total duration. Please do not minimize the page or switch to another webpage while watching, as these actions may cause the viewing time to not be recorded. ','viewHeart':'Viewing the heat curve','back10':'Rewind for 10 seconds','fast10':'Fast forward for 10 seconds','singleQuestion':'Single choice question',
+        'multiQuestion':'Multiple choice question','trueQuestion':'True or false','qTrue':'True','qFalse':'False','qTotal':'Total','qs':' questions','qAnsweR':'correctly answered ','submitBtn':'Submit','Submitting':'Submitting','continueStudy':'Continuing','continue2':'Continuing','lookBack':'Looking back','answerR':'Correct answer','answerErr':'Wrong answer','keepGood':'What a pity. Keep up the good work!',
+        'viewAnalysis':'View analysis','Analysis':'Analysis','Annotations':'Annotations','InteractiveQuizzes':'Interactive quizzes','corretTip1':'Congratulations, You answered correctly! ','corretTip2':'Your answer level exceeds ','corretTip3':'% of your classmates','backView':'Looking back at','backMinutes':'minutes','videoTitles':'titles','videoTrailer':'trailer',
+        'duplicateBbsTip':'The same topic discussion already exists in the chapter, please check before submitting','startPageNotEmpty':'The start page cannot be empty','endPageNotEmpty':'The end page cannot be empty','Subtitles': 'Subtitles','advancedetting':'Advanced setting','moreSubSettings':'More subtitle settings','textColr':'Text color','textOpacity':'Text opacity','backgroundColor':'Background color','backgroundOpacity':'Background opacity','windowOpacity':'Window opacity','window color':'Window color',
+        'textStroke':'Text stroke','reset':'Reset','White':'White','Black':'Black','Red':'Red','Green':'Green','Blue':'Blue','Yellow':'Yellow','Magenta':'Magenta','Cyan':'Cyan','None':'None','Raised':'Raised','Depressed':'Depressed','Uniform':'Uniform','Dropshadow':'Dropshadow','subtitlePosition':'Subtitleposition','moderate':'moderate','sHigh':'high','sLow':'low',
+        'ProportionalSans-Serif': 'Proportional Sans-Serif','MonospaceSans-Serif': 'Monospace Sans-Serif','ProportionalSerif': 'Proportional Serif','MonospaceSerif': 'Monospace Serif','Casual': 'Casual','Script': 'Script','SmallCaps': 'Small Caps','Typeface':'Typeface','VideoLines':'Lines','VideoClarity':'Definition','windowColor':'Window Color','insertdoc':'File','insertvideo':'Video','fontFamily':'Font Family',
+        'closeBullet':'Close bullet','openBullet':'Open bullet','titleLimit200':'Title limited to 200 words','contentLimit20000':'Content limited to 20000 words','correctAnswer':'Correct answer','danmuLike':'Like','danmuUnLike':'Unlike','copy':'Copy','copySuccess':'Replication success!','contentSynchronized':'The content is currently being synchronized and cannot be operated. Please check later','getMoveStatusFailed':'Failed to obtain chapter movement status','refreshTips':'Please refresh the page and try again',
+        'endTime':'End time: ','endByManual':'End by Manual','noLoginTip':'The current status is not logged in, and you have no permission to view the questionnaire','noPowerTip':'You are not the teacher or student of this course and have no permission to view the questionnaire.','sizeSettings':'Size settings','width':'width','height':'height','bookTip1':'The page-turning time for books is set to not exceed 600 seconds.','bookTip2':'The teacher sets the book flipping time to be ','bookTip3':' seconds.',
+        'parentIsDeletedTips':'The parent directory does not exist. Please refresh the page and try editing again.','kcsz':'Education','visuClassAI':'VisuClass AI'
+    },
+    'zh-cn': {'report':'举报','timeSelect':'选择时间', 'noParentNode':'无父级节点', 'parentNode':'父级节点','undo':'撤销', 'redo':'重做', 'Bold': '加粗', 'underline': '下划线', 'Strikethrough': '中划线', 'Overline': '上划线', 'Italic': '斜体', 'Number': '编号', 'Catalog': '目录',
+        'Background': '底色', 'packUp': '收起', 'Tables': '表格', 'Template': '模板', 'Color': '颜色', 'AlignLeft': '左对齐', 'AlignRight': '右对齐', 'Center': '居中', 'Justify':'两端对齐',
+        'AddIndent': '加缩进', 'ReduceIndent': '减缩进', 'Spacing': '行距', 'SimSun': '宋体', 'SimKai': '楷体', 'microsoftYaHei': '微软雅黑', 'SimHei': '黑体',
+        'SimLi': '隶书', 'Picture': '图片', 'Link': '链接', 'File': '文档', 'Reading': '阅读', 'Live': '直播', 'CXClass': '在线课堂', 'Video': '视频',
+        'Books': '图书', 'Attachments': '附件', 'Quiz': '章节测验', 'Discussion': '讨论', 'expandReading': '扩展阅读', 'Symbols': '符号', 'Formulas': '公式', 'FormulasBeta': '公式beta',
+        'Audio': '音频', 'readingLink': '图书内页', 'Flash': '动画', 'Resources': '课程资料', 'ChaoxingVideo': '在线视频', 'CXDiscovery': '超星发现', 'CXJournals': '超星期刊',
+        'ExternalLinks': '外部链接', 'input': '输入框', 'SchoolResources': '本校资源', 'ExternalResources': '三方资源', '3DResources': '3D资源', 'Recording': '录音',
+        'Survey': '调查问卷', 'Underline': '划线', 'Format': '格式', 'ClearFormatting': "清除格式", 'FormatPainter': '格式刷', 'More': '更多', 'Plugin': '插件',
+        'Undo': '撤销', 'Redo': '重做', 'DownloadTools': '下载小工具', 'onlinePreview': '网页预览', 'appPreview': '手机预览', 'LocalUpload': '本地上传', 'CloudDisk': '云盘', 'relatePoint': '关联知识点', 'taskPoint': '任务点',
+        'Barrage': '弹幕', 'playCurrent': '原位播放', 'download': '允许下载', 'fold': '收起', 'unFold': '展开', 'Watch': '观看', 'Edit': '编辑', 'liveDetails': '直播详情', 'forFinish': '通过',
+        'Check': '查看', 'preview': '预览', 'open': '打开', 'deleteWorkTip': '作业删除后将无法恢复，确认删除吗？', 'deleteFailed': '删除失败：', 'noDrag': '防拖拽', 'noSwitch': '防窗口切换', 'speed': '允许倍速',
+        'knowledgePoint': '知识点',
+        'graphDelete': '确认删除章节知识图谱?',
+        'beSureDelete': '删除内容将同时删除所有班级学生学习记录，统计数据根据班级人数会有不同程度的延迟，如该内容有关联过知识点，微课中同步的内容也会删除，确认删除?',
+        'secondsForFinished': '秒可完成任务点',
+        'videoJobTipTime':'观看时长需 ≥ 总时长的 90% (未完成任务点前, 当前视频',
+        'videoJobTipFastForward':'不可倍速、',
+        'videoJobTipDrag':'不可拖拽、',
+        'videoJobTipWin':'观看时不可离开或将页面最小化、',
+        'finishConditionTip':'完成条件',
+        'limitTurnTime': '限制翻书时间',
+        'seconds': '秒',
+        'cancelTaskTip': '取消任务点将同时删除所有班级学生学习记录，确认删除？',
+        'endMoreThanStart' : '结束页数不能小于开始页数', 'endLessTotal': '结束页数不能大于总页数', 'saveToCloudDisk': '同步到网盘（若视频出现了令您不满意的多余编辑内容，请同步到网盘后重新编辑）',
+        'Saving': '正在同步', 'Vote': '投票问卷', 'compositionChapters': '专题章节', 'courseChapters': '课程章节', 'remarks': '备注', 'note': '笔记',
+        'firstNotEdit': '一级目录不允许编辑内容。', 'uploadCover': '上传封面', 'fileUploading': '文件正在上传', 'coverUploading': '正在上传封面',
+        'histotyVersion': '历史版本查询', 'addPeer': '添加同级目录', 'addSub': '添加子目录', 'moveUp': '向上移动', 'moveDown': '向下移动', 'moveTo': '移动到', 'selectLast': '选中最后一个',
+        'importCatalog': '导入目录', 'labelReuse': '标签复用', 'sameCatalog': '(新建目录与上一个目录标签相同)', 'quickImport': '快速导入', 'templateImport': '模板导入',
+        'eachRow': '每行填写一个目录，目录的层级用两个空格区分，只支持三级目录', 'clearInput': '清空文本框', 'forExample': '比如：', 'levelFist': '一级目录', 'levelSecond': '二级目录',
+        'levelThird': '三级目录', 'import': '导入', 'cancel': '取消', 'createFileByImport': '通过导入功能，可从规定格式的文件中建立', 'composition': '专题', 'course': '课程',
+        'downloadNewTemplate': '请下载模板文件，并严格按照模板文件中所述规则填写，否则可能导入失败。', 'selectAndUpload': '选择文件并上传', 'downloadLatest': '下载模板',
+        'richText': '富文本', 'selectCourseware': '请选择您需要的课件类型添加课程内容', 'noTitle': '无标题', 'ok': '确定', 'confirm': '是否确定', 'text': '正文', 'loading': '正在加载内容...',
+        'warning': '警告', 'switchLabelFailed': '切换标签失败，请刷新重试...', 'movingLabel': '正在移动标签...', 'movingLabelFailed': '移动标签失败...', 'saveFailed': '保存失败,点击‘确定’重新保存，点击‘取消’放弃保存！',
+        'operationFailed': '操作失败...', 'waitingForComplete': '正在等待操作完毕...', 'newCatalog': '新建课程目录', 'newCompositionCatalog': '新建专题目录', 'deleteTip': '若该目录下存在子目录将一并删除，是否确定删除？',
+        'saveSuccess': '保存成功', 'duplicateTaskPointTip': '章节中含有重复的任务点或者课件信息，请检查后再提交', 'catalog': '目录。', 'textUploading': '文本正在上传', 'loadingFailed': '加载失败...',
+        'deleteCardTip': '删除后将无法恢复，确认删除吗？', 'transcodingFailed': '转码失败，请使用其他软件另存后重新上传【9005】', 'transcoding': '正在转码，您无需在此页面等待【9001】',
+        'uploadingBy': '上传中【9002】', 'loadTimeOut': '加载超时，请刷新页面重试【9003】', 'loadingFailedByFile': '音频加载失败，请稍后再试【9004】', 'validateFile': '正在验证文件...', 'Quantity': '题量：', 'create': '创建',
+        'videoSaveSuccess': '同步成功，该视频已经同步到您的网盘', 'videoSaveFailed': '同步失败，请您稍后再试', 'videoSave': '正在同步', 'saveBefore': '插入对象前请先进行保存',
+        'copyFailed': '复制失败', 'requestFailed': '请求失败', 'editFailed': '剪辑失败','localUpload': '本地上传','cloudDisk': '云盘','resource': '课程资料', 'over': '超过', 'use': '的文件请使用',
+        'cxClient': '学习通电脑客户端', 'uploadFiles': '上传', 'support': '支持的格式包括：', 'readAndAccept': '上传附件即表示我已阅读并接受', 'userAgreement': '《用户协议》', 'overTip': '文件超过1GB，请先上传到云盘客户端，再通过\"云盘客户端\"添加至课程。',
+        'allFormat': '所有格式', 'exception': '云盘上传服务异常', 'sameTitleAndType': '已有相同名称和类型的文件存在，请修改文件名再上传。', 'cloudOver': '您的云盘空间已经用完，请清理后再继续...', 'uploadFailed': '上传失败', 'serverFailed': '服务器处理失败了',
+        'noResult': '抱歉没找到相应的结果', 'upload': '上传文件', 'uploadAgain': '重新上传', 'moreNum': '批量插入数量不能大于10!', 'libraryEmpty': '资料库为空，可在课程导航栏进入资料模块进行添加!', 'getAddress': '获取地址，请稍等', 'getAddressFailed': '获取地址失败',
+        'noZt': '暂无可添加的专题，请先在资源模块添加专题', 'toAdd': ' 去资料模块添加 ', 'visualEditing': '可视化编辑', 'sourceEdit': '源码编辑', 'downloadCard': '下载', 'deleteChapterTip': '删除此目录将同时删除该目录下所有子目录 ', 'deleteChapterConfirmTip': '删除后不可恢复，是否确认删除',
+        'liveStreamer': '主播', 'liveUnplayed': '未开始', 'liveLiving': '直播中', 'liveFinished': '已结束', 'livePlayback': '可回放', 'liveLivingTip': '观看直播至结束方可完成任务点', 'liveNotBack': '直播不允许回看','replace': '替换','cloudClass': '智播课堂','YRResources':'育人资源库','tabDeleteTips':'删除此标签页将同时删除标签页中内容且无法恢复，确认删除？',
+        'taskPointText':'任务点','taskPointCompleteText':'任务点已完成','openLinkText':'打开链接','delete':'删除','unplayInSitu':'取消原位播放','noResourceTips1':'暂无资料，请点击','noResourceTips2':'资料','noResourceTips3':'添加','overLayerTip':'最多创建七级目录',
+        'previewTime':'预告时间：','zbTip1':'观看时长达到总时长的','zbTip2':'%即可完成任务点。观看时，请勿将页面最小化、切换其他网页，这类操作可能导致无法记录观看时长。（观看时长统计有延迟，请耐心等待，隔天查看）','zbTip3':'%可完成任务点。观看时，请勿将页面最小化、切换其他网页，这类操作可能导致无法记录观看时长。直播结束后可查看百分比数据','zbTip4':'%可完成任务点。观看时，请勿将页面最小化、切换其他网页，这类操作可能导致无法记录观看时长。你已观看','zbTip5':'分钟（时长每5分钟更新一次），直播结束后可查看百分比数据',
+        'zbTip6':'分钟（时长每5分钟更新一次）','zbTip7':'分钟（时长每5分钟更新一次），当前观看进度为','zbTip8':'你已观看','zbTip9':'%可完成任务点。观看时，请勿将页面最小化、切换其他网页，这类操作可能导致无法记录观看时长。','viewHeart':'观看热度曲线','back10':'快退十秒','fast10':'快进十秒','singleQuestion':'单选题','multiQuestion':'多选题','trueQuestion':'判断题','qTrue':'对','qFalse':'错','qTotal':'共','qs':' 题','qAnsweR':'已答对',
+        'submitBtn':'提交','Submitting':'提交中','continueStudy':'继续学习','continue2':'继续','lookBack':'知识点回看','answerR':'回答正确','answerErr':'回答错误','keepGood':'真遗憾，再接再厉！','viewAnalysis':'查看解析','Analysis':'解析','Annotations':'批注','InteractiveQuizzes':'互动测验',
+        'corretTip1':'恭喜你，答对了！','corretTip2':'你的答题水准超过了','corretTip3':'%的同学','backView':'回看','backMinutes':'分钟','videoTitles':'片头','videoTrailer':'片尾','duplicateBbsTip':'章节中已经存在相同的主题讨论，请检查后再提交','startPageNotEmpty':'起始页不能为空','endPageNotEmpty':'结束页不能为空',
+        'Subtitles': '字幕','advancedetting':'高级设置','moreSubSettings':'更多字幕设置','textColr':'文字颜色','textOpacity':'文字不透明度','backgroundColor':'背景颜色','backgroundOpacity':'背景不透明度','windowOpacity':'视窗不透明度','windowColor':'视窗颜色',
+        'textStroke':'文字描边','reset':'重置','White':'白','Black':'黑','Red':'红','Green':'绿','Blue':'蓝','Yellow':'黄','Magenta':'紫红','Cyan':'青','None':'无','Raised':'浮雕','Depressed':'压低','Uniform':'均匀','Dropshadow':'下阴影','subtitlePosition':'字幕位置','moderate':'适中','sHigh':'高','sLow':'低',
+        'ProportionalSans-Serif': '比例无细体','MonospaceSans-Serif': '单间隔无细体','ProportionalSerif': '比例细体','MonospaceSerif': '单间隔细体','Casual': '舒适','Script': '手写体','SmallCaps': '小型大写字体','Typeface':'字体','VideoLines':'线路','VideoClarity':'清晰度','insertdoc':'插入文档','insertvideo':'插入视频','fontFamily':'字体',
+        'closeBullet':'关闭弹幕','openBullet':'开启弹幕','titleLimit200':'标题限200字','contentLimit20000':'内容限20000字','correctAnswer':'正确答案','danmuLike':'点赞','danmuUnLike':'取消点赞','copy':'复制','copySuccess':'复制成功!','contentSynchronized':'内容正在同步中，暂不可操作，请稍后查看','getMoveStatusFailed':'获取章节移动状态失败','refreshTips':'请刷新页面重试',
+        'endTime':'结束时间：','endByManual':'手动结束','noLoginTip':'当前状态未登录，无权限查看投票问卷','noPowerTip':'您不是本课学生/老师，无权限查看投票问卷','sizeSettings':'尺寸设置','width':'宽度','height':'高度','bookTip1':'图书的翻页时间设置不超过600秒','bookTip2':'教师设置图书翻页时间为','bookTip3':'秒','parentIsDeletedTips':'上一级目录不存在，请刷新页面后再进行编辑', 'kcsz':'课程思政','visuClassAI':'视课AI'
+    },
+    'zh-tw': {'report':'舉報','timeSelect':'選擇時間', 'noParentNode':'無父級節點', 'parentNode':'父級節點','undo':'撤銷', 'redo':'重做', 'Bold': '加粗', 'underline': '下劃線', 'Strikethrough': '中劃線', 'Overline': '上劃線', 'Italic': '斜體', 'Number': '編號', 'Catalog': '目錄',
+        'Background': '底色', 'packUp': '收起', 'Tables': '表格', 'Template': '模板', 'Color': '顏色', 'AlignLeft': '左對齊', 'AlignRight': '右對齊', 'Center': '居中','Justify':'兩端對齊',
+        'AddIndent': '加縮進', 'ReduceIndent': '減縮進', 'Spacing': '行距', 'SimSun': '宋體', 'SimKai': '楷體', 'microsoftYaHei': '微軟雅黑', 'SimHei': '黑體',
+        'SimLi': '隸書', 'Picture': '圖片', 'Link': '鏈接', 'File': '文檔', 'Reading': '閱讀', 'Live': '直播', 'CXClass': '在線課堂', 'Video': '視頻',
+        'Books': '圖書', 'Attachments': '附件', 'Quiz': '章節測驗', 'Discussion': '討論', 'expandReading': '擴展閱讀', 'Symbols': '符號', 'Formulas': '公式',
+        'Audio': '音頻', 'readingLink': '圖書內頁', 'Flash': '動畫', 'Resources': '課程資料', 'ChaoxingVideo': '在線視頻', 'CXDiscovery': '超星發現', 'CXJournals': '超星期刊',
+        'ExternalLinks': '外部鏈接', 'input': '輸入框', 'SchoolResources': '本校資源', 'ExternalResources': '三方資源', '3DResources': '3D資源', 'Recording': '錄音',
+        'Survey': '調查問卷', 'Underline': '劃線', 'Format': '格式', 'ClearFormatting': "清除格式", 'FormatPainter': '格式刷', 'More': '更多', 'Plugin': '插件',
+        'Undo': '撤銷', 'Redo': '重做', 'DownloadTools': '下載小工具', 'onlinePreview': '網頁預覽', 'appPreview': '手機預覽', 'LocalUpload': '本地上傳', 'CloudDisk': '雲盤', 'relatePoint': '關聯知識點', 'taskPoint': '任務點',
+        'Barrage': '彈幕', 'playCurrent': '原位播放', 'download': '允許下載', 'fold': '收起', 'unFold': '展開', 'Watch': '觀看', 'Edit': '編輯', 'liveDetails': '直播詳情', 'forFinish': '通過',
+        'Check': '查看', 'preview': '預覽', 'open': '打開', 'deleteWorkTip': '作業刪除後將無法恢復，確認刪除嗎？', 'deleteFailed': '刪除失敗：', 'noDrag': '防拖拽', 'noSwitch': '防窗口切換', 'speed': '允許倍速',
+        'knowledgePoint': '知識點',
+        'graphDelete': '確認刪除章節知識圖譜?',
+        'beSureDelete': '刪除內容將同時刪除所有班級學生學習記錄，統計數據根據班級人數會有不同程度的延遲，如該內容有關聯過知識點，微課中同步的內容也會刪除，確認刪除?',
+        'secondsForFinished': '秒可完成任務點',
+        'videoJobTipTime':'觀看時長需 ≥ 總時長的90%（未完成任務點前，當前視頻',
+        'videoJobTipFastForward':'不可倍速、',
+        'videoJobTipDrag':'不可拖拽、',
+        'videoJobTipWin':'觀看時不可離開或將頁面最小化、',
+        'finishConditionTip':'完成條件',
+        'limitTurnTime': '限制翻書時間',
+        'seconds': '秒',
+        'cancelTaskTip': '取消任務點將同時刪除所有班級學生學習記錄，確認刪除？',
+        'endMoreThanStart' : '結束頁數不能小於開始頁數', 'endLessTotal': '結束頁數不能大於總頁數', 'saveToCloudDisk': '同步到網盤（若視頻出現了令您不滿意的多余編輯內容，請同步到網盤後重新編輯）',
+        'Saving': '正在同步', 'Vote': '投票問卷', 'compositionChapters': '專題章節', 'courseChapters': '課程章節', 'remarks': '備註', 'note': '筆記',
+        'firstNotEdit': '壹級目錄不允許編輯內容。', 'uploadCover': '上傳封面', 'fileUploading': '文件正在上傳', 'coverUploading': '正在上傳封面',
+        'histotyVersion': '歷史版本查詢', 'addPeer': '添加同級目錄', 'addSub': '添加子目錄', 'moveUp': '向上移動', 'moveDown': '向下移動', 'moveTo': '移動到', 'selectLast': '選中最後壹個',
+        'importCatalog': '導入目錄', 'labelReuse': '標簽復用', 'sameCatalog': '(新建目錄與上壹個目錄標簽相同)', 'quickImport': '快速導入', 'templateImport': '模板導入',
+        'eachRow': '每行填寫壹個目錄，目錄的層級用兩個空格區分，只支持三級目錄', 'clearInput': '清空文本框', 'forExample': '比如：', 'levelFist': '壹級目錄', 'levelSecond': '二級目錄',
+        'levelThird': '三級目錄', 'import': '導入', 'cancel': '取消', 'createFileByImport': '通過導入功能，可從規定格式的文件中建立', 'composition': '專題', 'course': '課程',
+        'downloadNewTemplate': '請下載模板文件，並嚴格按照模板文件中所述規則填寫，否則可能導入失敗。', 'selectAndUpload': '選擇文件並上傳', 'downloadLatest': '下載模板',
+        'richText': '富文本', 'selectCourseware': '請選擇您需要的課件類型添加課程內容', 'noTitle': '無標題', 'ok': '確定', 'confirm': '是否確定', 'text': '正文', 'loading': '正在加載內容...',
+        'warning': '警告', 'switchLabelFailed': '切換標簽失敗，請刷新重試...', 'movingLabel': '正在移動標簽...', 'movingLabelFailed': '移動標簽失敗...', 'saveFailed': '保存失敗,點擊‘確定’重新保存，點擊‘取消’放棄保存！',
+        'operationFailed': '操作失敗...', 'waitingForComplete': '正在等待操作完畢...', 'newCatalog': '新建課程目錄', 'newCompositionCatalog': '新建專題目錄', 'deleteTip': '若該目錄下存在子目錄將壹並刪除，是否確定刪除？',
+        'saveSuccess': '保存成功', 'duplicateTaskPointTip': '章節中含有重復的任務點或者課件信息，請檢查後再提交', 'catalog': '目錄。', 'textUploading': '文本正在上傳', 'loadingFailed': '加載失敗...',
+        'deleteCardTip': '刪除後將無法恢復，確認刪除嗎？', 'transcodingFailed': '轉碼失敗，請使用其他軟件另存後重新上傳【9005】', 'transcoding': '正在轉碼，您無需在此頁面等待【9001】',
+        'uploadingBy': '上傳中【9002】', 'loadTimeOut': '加載超時，請刷新頁面重試【9003】', 'loadingFailedByFile': '音頻加載失敗，請稍後再試【9004】', 'validateFile': '正在驗證文件...', 'Quantity': '題量：', 'create': '創建',
+        'videoSaveSuccess': '同步成功，該視頻已經同步到您的網盤', 'videoSaveFailed': '同步失敗，請您稍後再試', 'videoSave': '正在同步', 'saveBefore': '插入對象前請先進行保存',
+        'copyFailed': '復制失敗', 'requestFailed': '請求失敗', 'editFailed': '剪輯失敗','localUpload': '本地上傳','cloudDisk': '雲盤','resource': '課程資料', 'over': '超過', 'use': '的文件請使用',
+        'cxClient': '學習通電腦客戶端', 'uploadFiles': '上傳', 'support': '支持的格式包括：', 'readAndAccept': '上傳附件即表示我已閱讀並接受', 'userAgreement': '《用戶協議》', 'overTip': '文件超過1GB，請先上傳到雲盤客戶端，再通過\"雲盤客戶端\"添加至課程。',
+        'allFormat': '所有格式', 'exception': '雲盤上傳服務異常', 'sameTitleAndType': '已有相同名稱和類型的文件存在，請修改文件名再上傳。', 'cloudOver': '您的雲盤空間已經用完，請清理後再繼續...', 'uploadFailed': '上傳失敗', 'serverFailed': '服務器處理失敗了',
+        'noResult': '抱歉沒找到相應的結果', 'upload': '上傳文件', 'uploadAgain': '重新上傳', 'moreNum': '批量插入數量不能大於10!', 'libraryEmpty': '資料庫為空，可在課程導航欄進入資料模塊進行添加!', 'getAddress': '獲取地址，請稍等', 'getAddressFailed': '獲取地址失敗',
+        'noZt': '暫無可添加的專題，請先在資源模塊添加專題', 'toAdd': ' 去資料模塊添加 ', 'visualEditing': '可視化編輯', 'sourceEdit': '源碼編輯', 'downloadCard': '下載', 'deleteChapterTip': '刪除此目錄將同時刪除該目錄下所有子目錄 ', 'deleteChapterConfirmTip': '刪除後不可恢復，是否確認刪除',
+        'liveStreamer': '主播', 'liveUnplayed': '未開始', 'liveLiving': '直播中', 'liveFinished': '已結束', 'livePlayback': '可回放', 'liveLivingTip': '觀看直播至結束方可完成任務點', 'liveNotBack': '直播不允許回看','replace': '替換','cloudClass': '智播課堂','YRResources':'育人資源庫','tabDeleteTips':'刪除此標籤頁將同時刪除標籤頁中的內容且無法恢復，確認刪除？',
+        'taskPointText':'任務點','taskPointCompleteText':'任務點已完成','openLinkText':'打開鏈接','delete':'刪除','unplayInSitu':'取消原位播放','noResourceTips1':'暫無資料，請點擊','noResourceTips2':'資料','noResourceTips3':'添加','overLayerTip':'最多創建七級目錄',
+        'previewTime':'預告時間：','zbTip1':'觀看時長達到總時長的','zbTip2':'%即可完成任務點。觀看時，請勿將頁面最小化、切換其他網頁，這類操作可能導致無法記錄觀看時長。（觀看時長統計有延遲，請耐心等待，隔天查看）','zbTip3':'%可完成任務點。觀看時，請勿將頁面最小化、切換其他網頁，這類操作可能導致無法記錄觀看時長。直播結束後可查看百分比數據','zbTip4':'%可完成任務點。觀看時，請勿將頁面最小化、切換其他網頁，這類操作可能導致無法記錄觀看時長。你已觀看','zbTip5':'分鐘（時長每5分鐘更新一次），直播結束後可查看百分比數據',
+        'zbTip6':'分鐘（時長每5分鐘更新一次）','zbTip7':'分鐘（時長每5分鐘更新一次），當前觀看進度為','zbTip8':'你已觀看','zbTip9':'%即可完成任務點。觀看時，請勿將頁面最小化、切換其他網頁，這類操作可能導致無法記錄觀看時長。','viewHeart':'觀看熱度曲線','back10':'快退十秒','fast10':'快進十秒','singleQuestion':'單選題','multiQuestion':'多选题','trueQuestion':'判斷題','qTrue':'對','qFalse':'錯','qTotal':'共','qs':' 題','qAnsweR':'已答對',
+        'submitBtn':'提交','Submitting':'提交中','continueStudy':'繼續學習','continue2':'继续','lookBack':'知识点回看','answerR':'回答正確','answerErr':'回答錯誤','keepGood':'真遺憾，再接再厲！','viewAnalysis':'查看解析','Analysis':'解析','Annotations':'批註','InteractiveQuizzes':'互動測驗',
+        'corretTip1':'恭喜你，答對了！','corretTip2':'你的答題水準超過了','corretTip3':'%的同學','backView':'回看','backMinutes':'分鐘','videoTitles':'片头','videoTrailer':'片尾','duplicateBbsTip':'章節中已經存在相同的主題討論，請檢查後再提交','startPageNotEmpty':'起始頁不能為空','endPageNotEmpty':'結束頁不能為空',
+        'Subtitles':'字幕','advancedetting':'高級設定','moreSubSettings':'更多字幕設定','textColr':'文字顏色','textOpacity':'文字不透明度','backgroundColor':'背景顏色','backgroundOpacity':'背景不透明度','windowOpacity':'視窗不透明度','windowColor':'視窗顏色',
+        'textStroke':'文字描邊','reset':'重置','White':'白','Black':'黑','Red':'紅','Green':'綠','Blue':'藍','Yellow':'黃','Magenta':'紫紅','Cyan':'青','None':'無','Raised':'浮雕','Depressed':'壓低','Uniform':'均勻','Dropshadow':'下陰影','subtitlePosition':'字幕位置','moderate':'適中','sHigh':'高','sLow':'低',
+        'ProportionalSans-Serif': '比例無細體','MonospaceSans-Serif': '單間隔無細體','ProportionalSerif': '比例細體','MonospaceSerif': '單間隔細體','Casual': '舒適','Script': '手寫體','SmallCaps': '小型大寫字體','Typeface':'字體','VideoLines':'線路','VideoClarity':'清晰度','insertdoc':'插入文档','insertvideo':'插入視頻','fontFamily':'字體',
+        'closeBullet':'關閉彈幕','openBullet':'開啟彈幕','titleLimit200':'標題限200字','contentLimit20000':'内容限20000字','correctAnswer':'正確答案','danmuLike':'點贊','danmuUnLike':'取消點贊','copy':'複製','copySuccess':'複製成功!','contentSynchronized':'內容正在同步中，暫不可操作，請稍後查看','getMoveStatusFailed':'獲取章節移動狀態失敗','refreshTips':'請刷新頁面重試',
+        'endTime':'結束時間：','endByManual':'手動結束','noLoginTip':'當前狀態未登錄，無權限查看投票問卷','noPowerTip':'您不是本課學生/老師，無權限查看投票問卷','sizeSettings':'尺寸設定','width':'寬度','height':'高度','bookTip1':'圖書的翻頁時間設定不超過600秒','bookTip2':'教師設定圖書翻頁時間為','bookTip3':'秒','parentIsDeletedTips':'上一級目錄不存在，請刷新頁面後再進行編輯','kcsz':'課程思政','visuClassAI':'視課AI'
+    }
+}
+function getCookieFun(objname){
+    var arrstr = document.cookie.split("; ");
+    for(var i = 0;i < arrstr.length;i ++){
+        var temp = arrstr[i].split("=");
+        if(temp[0] == objname){
+            return unescape(temp[1]);
+        }
+    }
+}
+var currentLanguage = (function (){
+    var en = getCookieFun('browserLocale');
+    var cnType = en &&  en == 'zh_TW'? "zh-tw" : "zh-cn";
+    return en && en == 'en_US' ? "en" : cnType
+})();
+var langMap = language[currentLanguage];
+var isEn = currentLanguage == "en" ? true : false;
+var isTw = currentLanguage == "zh-tw" ? true : false;
+var courseCookieFid = getCookieFun("fid");
+if(courseCookieFid == '35014' || courseCookieFid == '179952'){
+    langMap["CXClass"] = '在线课堂';
+    if (isEn) {
+        langMap["CXClass"] = 'Online Class';
+    }
+    if (isTw) {
+        langMap["CXClass"] = '在線課堂';
+    }
+} else if (courseCookieFid == '146332' || courseCookieFid == '16820' || courseCookieFid == '147335' || courseCookieFid == '129599' || courseCookieFid == '2403'){
+    langMap["CXClass"] = '西电课堂';
+    if(isEn){
+        staName = 'Fanya Class';
+    }
+    if (isTw) {
+        langMap["CXClass"] = '西電課堂';
+    }
+}
+if (courseCookieFid == '1024') {
+    langMap["ExternalResources"] = '司法案例库';
+    if (isEn) {
+        langMap["ExternalResources"] = 'External Resources';
+    }
+    if (isTw) {
+        langMap["CXClass"] = '司法案例庫';
+    }
+}
