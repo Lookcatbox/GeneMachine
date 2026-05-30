@@ -2,7 +2,7 @@ param(
     [string]$Message = "auto: update $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
     [string]$Branch = "main",
     [string]$Remote = "origin",
-    [string]$RemoteUrl = "https://github.com/Lookcatbox/GeneMachine"
+    [string]$RemoteUrl = "https://github.com/Lookcatbox/GeneMachine.git"
 )
 
 $ErrorActionPreference = 'Stop'
