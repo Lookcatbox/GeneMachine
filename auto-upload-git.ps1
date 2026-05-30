@@ -2,7 +2,7 @@ param(
     [string]$Message = "auto: update $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
     [string]$Branch = "main",
     [string]$Remote = "origin",
-    [string]$RemoteUrl = "https://github.com/linkychristian/GeneMachine.git"
+    [string]$RemoteUrl = "https://github.com/Lookcatbox/GeneMachine.git"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,8 +19,8 @@ try {
     }
 
     Write-Step "Ensuring git identity"
-    git config user.name "linkychristian"
-    git config user.email "linkychristian90@gmail.com"
+    git config user.name "Lookcatbox"
+    git config user.email "1245495327@qq.com"
 
     $existingRemote = git remote
     if (-not ($existingRemote -contains $Remote)) {
