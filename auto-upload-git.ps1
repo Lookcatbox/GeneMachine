@@ -27,6 +27,13 @@ try {
         Write-Step "Adding remote $Remote"
         git remote add $Remote $RemoteUrl
     }
+    else {
+        $currentRemoteUrl = git remote get-url $Remote
+        if ($currentRemoteUrl -ne $RemoteUrl) {
+            Write-Step "Updating remote $Remote URL"
+            git remote set-url $Remote $RemoteUrl
+        }
+    }
 
     Write-Step "Staging changes"
     git add .
