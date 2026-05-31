@@ -2,6 +2,12 @@
 
 using System.Collections.Generic;
 
+public struct GenePresenceEntry
+{
+    public int baseId;
+    public int cellCount;
+}
+
 public struct Gene
 {
     public int baseId;       // 基类编号，用于行为函数分派
@@ -17,6 +23,26 @@ public struct Gene
     // 5: 拥挤致死（Death.Func_4_5）
 
     private static readonly Dictionary<int, int> UpgradeSparseTable = new Dictionary<int, int>();
+
+    // baseId -> 名称（与运行时行为一致）
+    private static readonly Dictionary<int, string> BaseNameTable = new Dictionary<int, string>
+    {
+        { 1, "基础繁殖" },
+        { 2, "基础温度耐受" },
+        { 3, "基础光照需求" },
+        { 4, "基础寿命" },
+        { 5, "拥挤" },
+    };
+
+    // baseId -> 描述（摘自 Genelist.txt 前 5 项）
+    private static readonly Dictionary<int, string> BaseDescriptionTable = new Dictionary<int, string>
+    {
+        { 1, "每回合10%几率尝试繁殖，在自身及周围八格中随机选择一个可用格生成子代。" },
+        { 2, "基础耐温区间为 25-30，处于区间内时正常生存。" },
+        { 3, "可在 0-100 光照区间维持基础代谢。" },
+        { 4, "每回合 5% 几率自然死亡。" },
+        { 5, "周围八连通个体数超过 6 时死亡。" },
+    };
 
     public int id => hashId;
 
@@ -50,5 +76,76 @@ public struct Gene
         return UpgradeSparseTable.TryGetValue(hashId, out int upgradeHash)
             ? upgradeHash
             : 0;
+    }
+
+    public static string GetBaseName(int baseId)
+    {
+        if (BaseNameTable.TryGetValue(baseId, out string name))
+            return name;
+        return string.Format("基因 #{0}", baseId);
+    }
+
+    public static string GetBaseDescription(int baseId)
+    {
+        if (BaseDescriptionTable.TryGetValue(baseId, out string description))
+            return description;
+        return "暂无描述。";
+    }
+
+    /// <summary>
+    /// 统计全图细胞中各 baseId 基因的出现次数（按细胞计数，同一细胞含多个相同 baseId 只计一次）。
+    /// </summary>
+    public static List<GenePresenceEntry> BuildPresenceList()
+    {
+        var counts = new Dictionary<int, int>();
+        var cells = SimulationCore.AllCells;
+        if (cells == null)
+            return new List<GenePresenceEntry>();
+
+        for (int i = 0; i < cells.Count; i++)
+        {
+            Cell cell = cells[i];
+            if (cell == null || !cell.alive)
+                continue;
+
+            var seen = new HashSet<int>();
+            CollectBaseIdsFromCell(cell, seen);
+            foreach (int baseId in seen)
+            {
+                if (!counts.ContainsKey(baseId))
+                    counts[baseId] = 0;
+                counts[baseId]++;
+            }
+        }
+
+        var result = new List<GenePresenceEntry>(counts.Count);
+        foreach (var pair in counts)
+        {
+            result.Add(new GenePresenceEntry { baseId = pair.Key, cellCount = pair.Value });
+        }
+        result.Sort((a, b) => a.baseId.CompareTo(b.baseId));
+        return result;
+    }
+
+    private static void CollectBaseIdsFromCell(Cell cell, HashSet<int> seen)
+    {
+        if (cell.MainGeneList != null)
+        {
+            for (int i = 1; i < cell.MainGeneList.Length; i++)
+            {
+                int id = cell.MainGeneList[i].baseId;
+                if (id != 0)
+                    seen.Add(id);
+            }
+        }
+        if (cell.SubGeneList != null)
+        {
+            for (int i = 1; i < cell.SubGeneList.Length; i++)
+            {
+                int id = cell.SubGeneList[i].baseId;
+                if (id != 0)
+                    seen.Add(id);
+            }
+        }
     }
 }

@@ -51,6 +51,13 @@ public class MainMenuManager : MonoBehaviour
 
         RefreshSlots(false);
 
+        GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
+        labelStyle.fontSize = 16;
+        labelStyle.normal.textColor = Color.white;
+
+        GUIStyle shadowStyle = new GUIStyle(labelStyle);
+        shadowStyle.normal.textColor = Color.black;
+
         float width = Mathf.Min(760f, Screen.width * 0.85f);
         float height = Mathf.Min(520f, Screen.height * 0.85f);
         Rect windowRect = new Rect(
@@ -60,7 +67,10 @@ public class MainMenuManager : MonoBehaviour
             height);
 
         GUI.Box(windowRect, "");
-        GUI.Label(new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f), "读取存档");
+
+        Rect titleRect = new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f);
+        GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "读取存档", shadowStyle);
+        GUI.Label(titleRect, "读取存档", labelStyle);
 
         Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
         if (GUI.Button(closeRect, "X"))
@@ -101,10 +111,13 @@ public class MainMenuManager : MonoBehaviour
                 float textX = thumbRect.xMax + 12f;
                 Rect timeRect = new Rect(textX, rowRect.y + 10f, rowRect.width - textX - 10f, 24f);
                 Rect playRect = new Rect(textX, rowRect.y + 36f, rowRect.width - textX - 10f, 24f);
-                string timeText = string.Format("时间: {0}", info.SavedAt);
+                string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
+                string timeText = string.Format("时间: {0}", savedAt);
                 string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
-                GUI.Label(timeRect, timeText);
-                GUI.Label(playRect, playText);
+                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
+                GUI.Label(timeRect, timeText, labelStyle);
+                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
+                GUI.Label(playRect, playText, labelStyle);
             }
 
             y += rowHeight + rowSpacing;

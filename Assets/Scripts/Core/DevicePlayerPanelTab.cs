@@ -80,9 +80,22 @@ public class DevicePlayerPanelTab : PlayerPanelTabPage
 
         string craftText = type.Craftable ? "可制作" : "不可制作";
         int craftCost = DeviceSystem.GetCraftCost(type.TypeId);
-        string costText = type.Craftable
-            ? string.Format("制作消耗: {0}  已制作: {1}", craftCost, DeviceSystem.GetCraftCount(type.TypeId))
-            : "";
+        int crafted = DeviceSystem.GetCraftCount(type.TypeId);
+        int craftMax = DeviceSystem.GetCraftMax(type.TypeId);
+        string costText = "";
+        if (type.Craftable)
+        {
+            if (craftMax > 0)
+            {
+                costText = string.Format("制作消耗: {0}  已制作: {1}/{2}", craftCost, crafted, craftMax);
+                if (crafted >= craftMax)
+                    costText += "\n已达制造上限";
+            }
+            else
+            {
+                costText = string.Format("制作消耗: {0}  已制作: {1}", craftCost, crafted);
+            }
+        }
         string infoText = string.Format(
             "名称: {0}\n类型ID: {1}\n数量: {2}\n标签: {3}\n{4}\n\n{5}",
             type.Name,
@@ -104,7 +117,7 @@ public class DevicePlayerPanelTab : PlayerPanelTabPage
         if (GUI.Button(placeRect, "放置"))
             DeviceSystem.BeginPlacement(type.TypeId);
 
-        bool canCraft = type.Craftable && craftCost > 0 && SimulationCore.GetResearchPoints() >= craftCost;
+        bool canCraft = DeviceSystem.CanCraftDevice(type.TypeId);
         GUI.enabled = canCraft;
         if (GUI.Button(craftRect, "制作"))
             DeviceSystem.TryCraftDevice(type.TypeId);

@@ -71,6 +71,7 @@ public class MainManager : MonoBehaviour
 
     void Start()
     {
+        CellRenderer.geneFilterBaseId = 0;
         // 启动独立计算线程
         SimulationCore.SetSpeedMultiplier(simulationSpeed);
         if (SaveSystem.HasPendingLoadSlot)
@@ -1024,7 +1025,8 @@ public class MainManager : MonoBehaviour
                 float textX = thumbRect.xMax + 12f;
                 Rect timeRect = new Rect(textX, rowRect.y + 10f, rowRect.width - textX - 10f, 24f);
                 Rect playRect = new Rect(textX, rowRect.y + 36f, rowRect.width - textX - 10f, 24f);
-                string timeText = string.Format("时间: {0}", info.SavedAt);
+                string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
+                string timeText = string.Format("时间: {0}", savedAt);
                 string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
                 GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
                 GUI.Label(timeRect, timeText, labelStyle);

@@ -8,6 +8,7 @@ public class DeviceType
     public string Name;
     public string Description;
     public bool Craftable;
+    public int CraftMax; // 制造上限，0 表示不限
     public int Range;
     public string IconResource;
     public string PreviewResource;
@@ -103,9 +104,26 @@ public static class DeviceSystem
         }
     }
 
+    public static int GetCraftMax(int typeId)
+    {
+        DeviceType type = GetDeviceType(typeId);
+        return type != null ? type.CraftMax : 0;
+    }
+
+    public static bool CanCraftDevice(int typeId)
+    {
+        if (!typeMap.TryGetValue(typeId, out DeviceType type) || !type.Craftable)
+            return false;
+        if (type.CraftMax > 0 && GetCraftCount(typeId) >= type.CraftMax)
+            return false;
+        return GetCraftCost(typeId) > 0 && SimulationCore.GetResearchPoints() >= GetCraftCost(typeId);
+    }
+
     public static int GetCraftCost(int typeId)
     {
         if (!typeMap.TryGetValue(typeId, out DeviceType type) || !type.Craftable)
+            return 0;
+        if (type.CraftMax > 0 && GetCraftCount(typeId) >= type.CraftMax)
             return 0;
         if (typeId == SimulationConfig.DeviceResearchStationTypeId)
         {
@@ -120,6 +138,8 @@ public static class DeviceSystem
     public static bool TryCraftDevice(int typeId)
     {
         if (!typeMap.TryGetValue(typeId, out DeviceType type) || !type.Craftable)
+            return false;
+        if (type.CraftMax > 0 && GetCraftCount(typeId) >= type.CraftMax)
             return false;
 
         int cost = GetCraftCost(typeId);
@@ -252,6 +272,7 @@ public static class DeviceSystem
             Name = "种子仓",
             Description = "放置后在半径内的每格增加一个玩家细胞。",
             Craftable = false,
+            CraftMax = 0,
             Range = SimulationConfig.DeviceSeedStorageRange,
             IconResource = "Devices/seed_bank_icon",
             PreviewResource = "Devices/seed_bank_preview"
@@ -271,6 +292,7 @@ public static class DeviceSystem
             Name = "科研装置",
             Description = "覆盖范围内的每个存活细胞提供研发点，重叠范围只计一次。",
             Craftable = true,
+            CraftMax = SimulationConfig.DeviceResearchStationCraftMax,
             Range = SimulationConfig.DeviceResearchStationRange,
             IconResource = "Devices/research_lab_icon",
             PreviewResource = "Devices/research_lab_preview"

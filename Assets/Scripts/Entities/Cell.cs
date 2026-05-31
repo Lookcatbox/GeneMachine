@@ -41,4 +41,26 @@ public class Cell
         _energyCostCache = total;
         return total;
     }
+
+    /// <summary>
+    /// 检查细胞是否拥有指定 baseId 的基因（扫描主干与自由基因槽）。
+    /// </summary>
+    public bool HasGeneBaseId(int baseId)
+    {
+        if (baseId == 0)
+            return false;
+        if (MainGeneList != null)
+        {
+            for (int i = 1; i < MainGeneList.Length; i++)
+                if (MainGeneList[i].baseId == baseId)
+                    return true;
+        }
+        if (SubGeneList != null)
+        {
+            for (int i = 1; i < SubGeneList.Length; i++)
+                if (SubGeneList[i].baseId == baseId)
+                    return true;
+        }
+        return false;
+    }
 }

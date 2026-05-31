@@ -145,6 +145,8 @@ public static class SimulationConfig
     public static int DeviceSeedStorageRange = 10; // 欧拉距离半径
     public static int DeviceResearchStationTypeId = 2;
     public static int DeviceResearchStationRange = 10; // 欧拉距离半径
+    public static int DeviceDefaultCraftMax = 3; // 可制作装置默认制造上限（0=不限）
+    public static int DeviceResearchStationCraftMax = 3; // 科研装置制造上限
     public static int DeviceIconSize = 24;
     public static int DevicePreviewSize = 24;
     public static float DevicePanelListRatio = 0.33f; // 装置列表占比
@@ -214,4 +216,7 @@ public static class SimulationConfig
 
     // 叠加层透明度（温度/光照视图覆盖在地形上方）
     public static float OverlayAlpha = 0.55f;
+
+    // 基因视图
+    public static float GeneViewDimAlpha = 0.5f; // 基因视图中未匹配细胞的透明度
 }

@@ -152,6 +152,11 @@ public static class SaveSystem
             info.PlaySeconds = 0;
         }
 
+        if (string.IsNullOrEmpty(info.SavedAt) && File.Exists(dataPath))
+        {
+            info.SavedAt = File.GetLastWriteTime(dataPath).ToString("yyyy-MM-dd HH:mm:ss");
+        }
+
         if (File.Exists(screenshotPath))
         {
             byte[] bytes = File.ReadAllBytes(screenshotPath);

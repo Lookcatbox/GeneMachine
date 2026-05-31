@@ -1,5 +1,55 @@
 # 修改日志
 
+## 2026-05-31 修复 Package Manager 依赖冲突
+
+### 修改文件
+
+#### Packages/manifest.json
+- 移除当前编辑器无法解析的包：`multiplayer.center`、`test-framework`、`visualscripting`、`timeline`、`ugui@2.0.0` 及 `accessibility`/`adaptiveperformance`/`vectorgraphics`/`infinity` 等模块。
+- 保留项目实际需要的 2D 功能包与标准引擎模块，`ugui` 降为 `1.0.0` 以兼容 2022.3 LTS。
+
+#### Packages/packages-lock.json
+- 删除旧锁文件，由编辑器重新生成。
+
+## 2026-05-31 future.md 功能实现
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增 `DeviceDefaultCraftMax`、`DeviceResearchStationCraftMax` 装置制造上限配置。
+- 新增 `GeneViewDimAlpha` 基因视图未匹配细胞透明度。
+
+#### Core/DeviceSystem.cs
+- `DeviceType` 增加 `CraftMax` 属性。
+- 新增 `GetCraftMax`、`CanCraftDevice`；`TryCraftDevice` / `GetCraftCost`  enforce 制造上限。
+
+#### Core/DevicePlayerPanelTab.cs
+- 制作按钮与详情文案支持制造上限显示（已制作 x/y、已达上限提示）。
+
+#### Core/SaveSystem.cs
+- 存档元数据缺失保存时间时，用 `.bin` 文件修改时间兜底。
+
+#### Core/MainMenuManager.cs
+- 读取存档窗口时间与时长标签改用白字+阴影样式，修复深色背景不可见问题。
+
+#### Core/MainManager.cs
+- 存档窗口空时间显示 `--`；新局/读档时重置基因视图筛选。
+
+#### Core/GenePlayerPanelTab.cs
+- 实现全图基因列表与基因视图筛选交互（点击切换/清除）。
+
+#### Entities/Gene.cs
+- 新增 baseId 名称/描述目录、`BuildPresenceList` 全图基因统计 API。
+
+#### Entities/Cell.cs
+- 新增 `HasGeneBaseId` 查询方法。
+
+#### Managers/CellRenderer.cs
+- 新增 `geneFilterBaseId` 与 dim 材质批次，基因视图下未匹配细胞 50% 透明。
+
+#### CodeMenu.md
+- 更新上述文件简介。
+
 ## 2026-05-30 远程地址同步修复
 
 ### 修改文件

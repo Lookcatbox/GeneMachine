@@ -17,7 +17,7 @@
 | 文件 | 简介 |
 | --- | --- |
 | Assets/Scripts/Managers/VideoPlaylistPlayer.cs | 视频播放列表组件，支持按索引播放、前后切换与循环。 |
-| Assets/Scripts/Managers/CellRenderer.cs | 细胞与地形渲染管理：背景、叠加层、网格线与视图模式切换。 |
+| Assets/Scripts/Managers/CellRenderer.cs | 细胞与地形渲染管理：背景、叠加层、网格线、视图模式与基因视图筛选渲染。 |
 | Assets/Scripts/Managers/CameraController.cs | 正交相机缩放与平移控制，并计算可见网格范围。 |
 
 ## Assets/Scripts/Entities
@@ -25,9 +25,9 @@
 | 文件 | 简介 |
 | --- | --- |
 | Assets/Scripts/Entities/Species.cs | 玩家与 NPC 细胞的初始基因与优先级配置。 |
-| Assets/Scripts/Entities/Gene.cs | 基因结构体与升级哈希映射逻辑。 |
+| Assets/Scripts/Entities/Gene.cs | 基因结构体、升级哈希映射、baseId 名称/描述目录与全图基因统计。 |
 | Assets/Scripts/Entities/Envir.cs | 环境格数据：温度、光照、地形、细胞列表与增删接口。 |
-| Assets/Scripts/Entities/Cell.cs | 细胞数据与基因能耗缓存计算。 |
+| Assets/Scripts/Entities/Cell.cs | 细胞数据、基因能耗缓存与 baseId 基因查询。 |
 
 ## Assets/Scripts/Core
 
@@ -47,6 +47,6 @@
 | Assets/Scripts/Core/LightUpdate.cs | 使用噪声与纬度曲线更新环境光照场。 |
 | Assets/Scripts/Core/LightBehavior.cs | 光照行为：根据光照值进行能量获取。 |
 | Assets/Scripts/Core/HeatDiffusion.cs | 温度更新：光照增温、散热与扩散。 |
-| Assets/Scripts/Core/GenePlayerPanelTab.cs | 基因页签占位实现，预留后续扩展。 |
+| Assets/Scripts/Core/GenePlayerPanelTab.cs | 基因页签：全图基因列表（名称/描述/细胞数），点击切换基因视图筛选。 |
 | Assets/Scripts/Core/EnvironmentPlayerPanelTab.cs | 环境页签：显示鼠标悬停/锁定环境格的详细信息。 |
 | Assets/Scripts/Core/DeathBehavior.cs | 死亡行为：温度、寿命与拥挤规则判定。 |

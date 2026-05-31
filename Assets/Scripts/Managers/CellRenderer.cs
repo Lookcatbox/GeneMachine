@@ -10,6 +10,8 @@ public class CellRenderer : MonoBehaviour
     private Mesh quadMesh;
     private Material playerMaterial;  // 玩家细胞材质(绿)
     private Material npcMaterial;     // NPC细胞材质(棕)
+    private Material playerDimMaterial; // 基因视图中未匹配的玩家细胞
+    private Material npcDimMaterial;    // 基因视图中未匹配的 NPC 细胞
     private Texture2D circleTexture;
     private CameraController cameraController;
 
@@ -22,6 +24,8 @@ public class CellRenderer : MonoBehaviour
     private const int MAX_BATCH = 1023;
     private List<Matrix4x4> playerMatrices = new List<Matrix4x4>();
     private List<Matrix4x4> npcMatrices = new List<Matrix4x4>();
+    private List<Matrix4x4> playerDimMatrices = new List<Matrix4x4>();
+    private List<Matrix4x4> npcDimMatrices = new List<Matrix4x4>();
 
     // 网格线
     private Material lineMaterial;
@@ -37,6 +41,7 @@ public class CellRenderer : MonoBehaviour
     public static BaseViewMode currentBaseViewMode = BaseViewMode.Terrain;
     public static OverlayViewMode currentOverlayViewMode = OverlayViewMode.None;
     public static bool normalLightingEnabled = true;
+    public static int geneFilterBaseId = 0; // 0=无筛选，>0=基因视图筛选的 baseId
     private BaseViewMode lastBaseViewMode = (BaseViewMode)(-1);
     private OverlayViewMode lastOverlayViewMode = OverlayViewMode.None;
     private bool lastNormalLightingEnabled = true;
@@ -140,6 +145,18 @@ public class CellRenderer : MonoBehaviour
         npcMaterial = new Material(shader);
         npcMaterial.mainTexture = circleTexture;
         npcMaterial.color = NPCColor;
+
+        Color playerDim = PlayerColor;
+        playerDim.a = SimulationConfig.GeneViewDimAlpha;
+        playerDimMaterial = new Material(shader);
+        playerDimMaterial.mainTexture = circleTexture;
+        playerDimMaterial.color = playerDim;
+
+        Color npcDim = NPCColor;
+        npcDim.a = SimulationConfig.GeneViewDimAlpha;
+        npcDimMaterial = new Material(shader);
+        npcDimMaterial.mainTexture = circleTexture;
+        npcDimMaterial.color = npcDim;
     }
 
     void CreateLineMaterial()
@@ -707,6 +724,8 @@ public class CellRenderer : MonoBehaviour
         float ppe = SimulationConfig.PixelPerEnvir;
         playerMatrices.Clear();
         npcMatrices.Clear();
+        playerDimMatrices.Clear();
+        npcDimMatrices.Clear();
 
         for (int x = minX; x <= maxX; x++)
         {
@@ -729,8 +748,7 @@ public class CellRenderer : MonoBehaviour
                         Quaternion.identity,
                         new Vector3(scale, scale, 1));
 
-                    if (best.isPlayer) playerMatrices.Add(m);
-                    else npcMatrices.Add(m);
+                    AddCellRenderMatrix(best, m);
                 }
                 else
                 {
@@ -739,9 +757,29 @@ public class CellRenderer : MonoBehaviour
             }
         }
 
-        // 分批渲染玩家和NPC
+        // 先渲染半透明细胞，再渲染高亮细胞
+        FlushBatches(playerDimMatrices, playerDimMaterial);
+        FlushBatches(npcDimMatrices, npcDimMaterial);
         FlushBatches(playerMatrices, playerMaterial);
         FlushBatches(npcMatrices, npcMaterial);
+    }
+
+    /// <summary>
+    /// 按基因视图筛选状态，将细胞矩阵加入对应批次。
+    /// </summary>
+    void AddCellRenderMatrix(Cell cell, Matrix4x4 matrix)
+    {
+        bool dim = geneFilterBaseId > 0 && !cell.HasGeneBaseId(geneFilterBaseId);
+        if (cell.isPlayer)
+        {
+            if (dim) playerDimMatrices.Add(matrix);
+            else playerMatrices.Add(matrix);
+        }
+        else
+        {
+            if (dim) npcDimMatrices.Add(matrix);
+            else npcMatrices.Add(matrix);
+        }
     }
 
     /// <summary>
@@ -790,8 +828,7 @@ public class CellRenderer : MonoBehaviour
                 Quaternion.identity,
                 new Vector3(scale, scale, 1));
 
-            if (cell.isPlayer) playerMatrices.Add(m);
-            else npcMatrices.Add(m);
+            AddCellRenderMatrix(cell, m);
 
             idx++;
         }
