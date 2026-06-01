@@ -163,6 +163,7 @@ public static class SimulationConfig
 
     // 存档
     public static int SaveSlotCount = 6;
+    public static float SaveModalOverlayAlpha = 0.55f; // 存档确认弹窗背景遮罩透明度
     public static string MainMenuSceneName = "MainMenu";
     public static string GameSceneName = "A";
 

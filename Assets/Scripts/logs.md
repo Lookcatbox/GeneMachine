@@ -1,5 +1,41 @@
 # 修改日志
 
+## 2026-05-31 存档确认弹窗点击修复
+
+### 修改文件
+
+#### Core/MainManager.cs
+- 覆盖/删除确认改用 `GUI.ModalWindow`，移除全屏 `GUIStyle.none` 拦截按钮（该按钮会吞掉确认框点击）。
+- 存档槽点击区域改为最后绘制，使用半透明标准按钮样式。
+
+#### Core/MainMenuManager.cs
+- 删除确认同步改用 `GUI.ModalWindow` 与相同点击修复。
+
+## 2026-05-31 存档系统修复与删除功能
+
+### 修改文件
+
+#### Core/SimulationConfig.cs
+- 新增 `SaveModalOverlayAlpha` 存档弹窗遮罩透明度。
+
+#### Core/SaveSystem.cs
+- 以 `.bin` 为存档存在依据，兼容缺少 json 的旧档；元数据优先读 json，时间兜底用文件修改时间。
+- 保存时先写 json 再写 bin，降低时间不显示概率。
+- 新增 `DeleteSlot`、`ReleaseSlotTextures`、`CaptureSlotScreenshot`。
+- 截图加载失败时不再导致整条存档信息异常。
+
+#### Core/MainManager.cs
+- 覆盖/删除确认弹窗增加全屏遮罩，修复点击穿透到下层存档槽。
+- 新增删除存档、Esc 关闭弹窗、槽位编号与空槽提示。
+- 保存时短暂隐藏 UI 再截图，避免缩略图带存档界面。
+- 刷新槽位时释放旧截图纹理，防止内存泄漏。
+
+#### Core/MainMenuManager.cs
+- 同步删除存档、确认弹窗遮罩、槽位显示与纹理释放逻辑。
+
+#### CodeMenu.md
+- 补充 SaveSystem、MainMenuManager 简介，更新 MainManager 说明。
+
 ## 2026-05-31 修复 Package Manager 依赖冲突
 
 ### 修改文件

@@ -65,6 +65,54 @@ public static class SaveSystem
         return infos;
     }
 
+    /// <summary>
+    /// 释放存档列表中的截图纹理，避免重复加载时内存泄漏。
+    /// </summary>
+    public static void ReleaseSlotTextures(SaveSlotInfo[] infos)
+    {
+        if (infos == null)
+            return;
+        for (int i = 0; i < infos.Length; i++)
+        {
+            if (infos[i] != null && infos[i].Screenshot != null)
+            {
+                UnityEngine.Object.Destroy(infos[i].Screenshot);
+                infos[i].Screenshot = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 删除指定槽位的全部存档文件（数据、元数据、截图）。
+    /// </summary>
+    public static bool DeleteSlot(int slot)
+    {
+        if (slot < 0)
+            return false;
+
+        bool deleted = false;
+        string dataPath = GetSlotDataPath(slot);
+        string metaPath = GetSlotMetaPath(slot);
+        string screenshotPath = GetSlotScreenshotPath(slot);
+
+        if (File.Exists(dataPath))
+        {
+            File.Delete(dataPath);
+            deleted = true;
+        }
+        if (File.Exists(metaPath))
+        {
+            File.Delete(metaPath);
+            deleted = true;
+        }
+        if (File.Exists(screenshotPath))
+        {
+            File.Delete(screenshotPath);
+            deleted = true;
+        }
+        return deleted;
+    }
+
     public static string FormatPlayTime(double seconds)
     {
         if (seconds < 0) seconds = 0;
@@ -87,12 +135,7 @@ public static class SaveSystem
         string metaPath = GetSlotMetaPath(slot);
         string screenshotPath = GetSlotScreenshotPath(slot);
 
-        using (FileStream stream = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (BinaryWriter writer = new BinaryWriter(stream))
-        {
-            WriteSaveData(writer, manager);
-        }
-
+        // 先写元数据，再写二进制，避免仅有 bin 无 json 导致时间不显示
         SaveSlotMeta meta = new SaveSlotMeta
         {
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -100,6 +143,20 @@ public static class SaveSystem
         };
         File.WriteAllText(metaPath, JsonUtility.ToJson(meta));
 
+        using (FileStream stream = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (BinaryWriter writer = new BinaryWriter(stream))
+        {
+            WriteSaveData(writer, manager);
+        }
+
+        CaptureSlotScreenshot(screenshotPath);
+    }
+
+    /// <summary>
+    /// 捕获当前画面并写入指定截图路径（调用方需确保 UI 已隐藏）。
+    /// </summary>
+    public static void CaptureSlotScreenshot(string screenshotPath)
+    {
         Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
         if (screenshot != null)
         {
@@ -107,6 +164,11 @@ public static class SaveSystem
             File.WriteAllBytes(screenshotPath, png);
             UnityEngine.Object.Destroy(screenshot);
         }
+    }
+
+    public static void CaptureSlotScreenshot(int slot)
+    {
+        CaptureSlotScreenshot(GetSlotScreenshotPath(slot));
     }
 
     public static bool LoadSlotIntoSimulation(int slot, MainManager manager)
@@ -129,42 +191,55 @@ public static class SaveSystem
         string metaPath = GetSlotMetaPath(slot);
         string screenshotPath = GetSlotScreenshotPath(slot);
 
-        if (!File.Exists(dataPath) || !File.Exists(metaPath))
+        // 以 .bin 为存档是否存在的依据（兼容仅有 bin、缺少 json 的旧档）
+        if (!File.Exists(dataPath))
         {
             info.HasData = false;
             return info;
         }
 
         info.HasData = true;
-        try
+        info.SavedAt = "";
+        info.PlaySeconds = 0;
+
+        if (File.Exists(metaPath))
         {
-            string json = File.ReadAllText(metaPath);
-            SaveSlotMeta meta = JsonUtility.FromJson<SaveSlotMeta>(json);
-            if (meta != null)
+            try
             {
-                info.SavedAt = meta.savedAt;
-                info.PlaySeconds = meta.playSeconds;
+                string json = File.ReadAllText(metaPath);
+                SaveSlotMeta meta = JsonUtility.FromJson<SaveSlotMeta>(json);
+                if (meta != null)
+                {
+                    info.SavedAt = meta.savedAt ?? "";
+                    info.PlaySeconds = meta.playSeconds;
+                }
+            }
+            catch (Exception)
+            {
+                // 元数据损坏时走下方兜底
             }
         }
-        catch (Exception)
-        {
-            info.SavedAt = "";
-            info.PlaySeconds = 0;
-        }
 
-        if (string.IsNullOrEmpty(info.SavedAt) && File.Exists(dataPath))
-        {
+        if (string.IsNullOrEmpty(info.SavedAt))
             info.SavedAt = File.GetLastWriteTime(dataPath).ToString("yyyy-MM-dd HH:mm:ss");
-        }
 
         if (File.Exists(screenshotPath))
         {
-            byte[] bytes = File.ReadAllBytes(screenshotPath);
-            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            tex.filterMode = FilterMode.Point;
-            tex.wrapMode = TextureWrapMode.Clamp;
-            tex.LoadImage(bytes);
-            info.Screenshot = tex;
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(screenshotPath);
+                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                tex.filterMode = FilterMode.Point;
+                tex.wrapMode = TextureWrapMode.Clamp;
+                if (tex.LoadImage(bytes))
+                    info.Screenshot = tex;
+                else
+                    UnityEngine.Object.Destroy(tex);
+            }
+            catch (Exception)
+            {
+                // 截图损坏时忽略，仍显示文字信息
+            }
         }
 
         return info;

@@ -43,7 +43,9 @@
 | Assets/Scripts/Core/PlayerPanelTabPage.cs | 玩家面板页签基类与上下文数据结构。 |
 | Assets/Scripts/Core/MultiplyBehavior.cs | 繁殖行为：并行预计算、按优先级生成子代。 |
 | Assets/Scripts/Core/MapCreater.cpp | 空文件，占位或预留原生地图生成实现。 |
-| Assets/Scripts/Core/MainManager.cs | Unity 主控脚本：启动模拟、UI 面板、视图与光照控制。 |
+| Assets/Scripts/Core/MainManager.cs | Unity 主控脚本：启动模拟、UI 面板、存档/读档窗口（含删除与确认弹窗）。 |
+| Assets/Scripts/Core/MainMenuManager.cs | 主菜单：新游戏/读取/设置，读取存档列表与删除存档。 |
+| Assets/Scripts/Core/SaveSystem.cs | 存档读写：槽位元数据、二进制世界状态、截图、删除与纹理释放。 |
 | Assets/Scripts/Core/LightUpdate.cs | 使用噪声与纬度曲线更新环境光照场。 |
 | Assets/Scripts/Core/LightBehavior.cs | 光照行为：根据光照值进行能量获取。 |
 | Assets/Scripts/Core/HeatDiffusion.cs | 温度更新：光照增温、散热与扩散。 |

@@ -1,5 +1,6 @@
 ﻿// MainManager.cs - Unity主管理器，负责启动模拟和UI显示
 using UnityEngine;
+using System.Collections;
 
 public class MainManager : MonoBehaviour
 {
@@ -39,12 +40,21 @@ public class MainManager : MonoBehaviour
 
     private bool showSaveWindow = false;
     private bool showSaveConfirm = false;
+    private bool showDeleteConfirm = false;
     private bool pausedBeforeSave = false;
     private int pendingSaveSlot = -1;
+    private int pendingDeleteSlot = -1;
     private SaveSlotInfo[] cachedSaveSlots;
     private float lastSaveSlotsRefreshTime = -1f;
     private Rect lastSaveWindowRect;
     private Rect lastSaveConfirmRect;
+    private Rect lastSaveModalBlockerRect;
+    private bool saveScreenshotPending = false;
+
+    private const int SaveConfirmModalId = 91001;
+    private const int DeleteConfirmModalId = 91002;
+    private GUIStyle saveModalLabelStyle;
+    private GUIStyle saveModalShadowStyle;
 
     void Reset()
     {
@@ -116,6 +126,21 @@ public class MainManager : MonoBehaviour
         {
             showUI = !showUI;
         }
+
+        if (showSaveWindow && Input.GetKeyDown(KeyCode.Escape))
+        {
+            if (showSaveConfirm || showDeleteConfirm)
+            {
+                showSaveConfirm = false;
+                showDeleteConfirm = false;
+                pendingSaveSlot = -1;
+                pendingDeleteSlot = -1;
+            }
+            else
+            {
+                CloseSaveWindow();
+            }
+        }
     }
 
     void OnDestroy()
@@ -135,6 +160,9 @@ public class MainManager : MonoBehaviour
             else
                 DestroyImmediate(rangeOverlayTexture);
         }
+
+        SaveSystem.ReleaseSlotTextures(cachedSaveSlots);
+        cachedSaveSlots = null;
 
         SimulationCore.StopCalculation();
         Debug.Log("模拟已停止");
@@ -260,7 +288,15 @@ public class MainManager : MonoBehaviour
         DrawDeviceRangeOverlays();
         DrawDevicePlacementPreview();
         DrawSaveWindow(style, shadowStyle);
-        DrawSaveConfirm(style, shadowStyle);
+        if (IsSaveModalActive())
+            DrawSaveDimOverlay();
+        DrawSaveConfirmModal(style, shadowStyle);
+        DrawDeleteConfirmModal(style, shadowStyle);
+    }
+
+    bool IsSaveModalActive()
+    {
+        return showSaveConfirm || showDeleteConfirm;
     }
 
     void DrawSpeedControl(GUIStyle style, GUIStyle shadowStyle)
@@ -510,7 +546,7 @@ public class MainManager : MonoBehaviour
 
     void UpdateEnvironmentSelectionState()
     {
-        if (showSaveWindow || showSaveConfirm)
+        if (showSaveWindow || IsSaveModalActive())
         {
             hasHoveredEnvironmentCell = false;
             return;
@@ -656,7 +692,11 @@ public class MainManager : MonoBehaviour
     {
         if (showSaveWindow && lastSaveWindowRect.Contains(guiPosition))
             return true;
+        if (IsSaveModalActive() && lastSaveModalBlockerRect.Contains(guiPosition))
+            return true;
         if (showSaveConfirm && lastSaveConfirmRect.Contains(guiPosition))
+            return true;
+        if (showDeleteConfirm && lastSaveConfirmRect.Contains(guiPosition))
             return true;
         if (GetSpeedPanelRect().Contains(guiPosition))
             return true;
@@ -750,7 +790,7 @@ public class MainManager : MonoBehaviour
 
     void HandleDevicePlacementInput()
     {
-        if (showSaveWindow || showSaveConfirm)
+        if (showSaveWindow || IsSaveModalActive())
             return;
         if (!DeviceSystem.IsPlacing)
             return;
@@ -849,7 +889,7 @@ public class MainManager : MonoBehaviour
 
     void DrawDeviceRangeOverlays()
     {
-        if (showSaveWindow || showSaveConfirm)
+        if (showSaveWindow || IsSaveModalActive())
             return;
         if (DeviceSystem.IsPlacing)
         {
@@ -943,7 +983,9 @@ public class MainManager : MonoBehaviour
     {
         showSaveWindow = false;
         showSaveConfirm = false;
+        showDeleteConfirm = false;
         pendingSaveSlot = -1;
+        pendingDeleteSlot = -1;
         if (!pausedBeforeSave)
             SimulationCore.ResumeSimulation();
     }
@@ -954,8 +996,110 @@ public class MainManager : MonoBehaviour
         if (!force && now - lastSaveSlotsRefreshTime < 0.5f)
             return;
 
+        SaveSystem.ReleaseSlotTextures(cachedSaveSlots);
         cachedSaveSlots = SaveSystem.LoadAllSlotInfos();
         lastSaveSlotsRefreshTime = now;
+    }
+
+    void DrawSaveDimOverlay()
+    {
+        // 仅绘制遮罩，不注册全屏按钮（全屏按钮会抢走 ModalWindow 的点击）
+        lastSaveModalBlockerRect = new Rect(0f, 0f, Screen.width, Screen.height);
+        Color previousColor = GUI.color;
+        GUI.color = new Color(0f, 0f, 0f, SimulationConfig.SaveModalOverlayAlpha);
+        GUI.Box(lastSaveModalBlockerRect, GUIContent.none);
+        GUI.color = previousColor;
+    }
+
+    void DrawSaveConfirmModal(GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
+        if (!showSaveConfirm)
+            return;
+
+        saveModalLabelStyle = labelStyle;
+        saveModalShadowStyle = shadowStyle;
+
+        float width = 360f;
+        float height = 130f;
+        Rect rect = new Rect(
+            (Screen.width - width) * 0.5f,
+            (Screen.height - height) * 0.5f,
+            width,
+            height);
+
+        int prevDepth = GUI.depth;
+        GUI.depth = 1000;
+        lastSaveConfirmRect = GUI.ModalWindow(SaveConfirmModalId, rect, DrawSaveConfirmWindow, "覆盖存档");
+        GUI.depth = prevDepth;
+    }
+
+    void DrawSaveConfirmWindow(int windowId)
+    {
+        GUIStyle labelStyle = saveModalLabelStyle ?? GUI.skin.label;
+        GUIStyle shadowStyle = saveModalShadowStyle ?? GUI.skin.label;
+
+        GUILayout.Label("覆盖该存档？", labelStyle);
+        GUILayout.Space(12f);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("确定", GUILayout.Height(30f)))
+        {
+            int slot = pendingSaveSlot;
+            showSaveConfirm = false;
+            pendingSaveSlot = -1;
+            PerformSave(slot);
+        }
+        if (GUILayout.Button("取消", GUILayout.Height(30f)))
+        {
+            showSaveConfirm = false;
+            pendingSaveSlot = -1;
+        }
+        GUILayout.EndHorizontal();
+    }
+
+    void DrawDeleteConfirmModal(GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
+        if (!showDeleteConfirm)
+            return;
+
+        saveModalLabelStyle = labelStyle;
+        saveModalShadowStyle = shadowStyle;
+
+        float width = 360f;
+        float height = 130f;
+        Rect rect = new Rect(
+            (Screen.width - width) * 0.5f,
+            (Screen.height - height) * 0.5f,
+            width,
+            height);
+
+        int prevDepth = GUI.depth;
+        GUI.depth = 1000;
+        lastSaveConfirmRect = GUI.ModalWindow(DeleteConfirmModalId, rect, DrawDeleteConfirmWindow, "删除存档");
+        GUI.depth = prevDepth;
+    }
+
+    void DrawDeleteConfirmWindow(int windowId)
+    {
+        GUIStyle labelStyle = saveModalLabelStyle ?? GUI.skin.label;
+
+        string message = string.Format("确定删除槽位 {0} 的存档？", pendingDeleteSlot + 1);
+        GUILayout.Label(message, labelStyle);
+        GUILayout.Space(12f);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("确定", GUILayout.Height(30f)))
+        {
+            int slot = pendingDeleteSlot;
+            showDeleteConfirm = false;
+            pendingDeleteSlot = -1;
+            SaveSystem.DeleteSlot(slot);
+            RefreshSaveSlots(true);
+        }
+        if (GUILayout.Button("取消", GUILayout.Height(30f)))
+        {
+            showDeleteConfirm = false;
+            pendingDeleteSlot = -1;
+        }
+        GUILayout.EndHorizontal();
     }
 
     void DrawSaveWindow(GUIStyle labelStyle, GUIStyle shadowStyle)
@@ -981,7 +1125,7 @@ public class MainManager : MonoBehaviour
         GUI.Label(titleRect, "存档", labelStyle);
 
         Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
-        if (GUI.Button(closeRect, "X"))
+        if (!IsSaveModalActive() && GUI.Button(closeRect, "X"))
         {
             CloseSaveWindow();
             return;
@@ -990,8 +1134,10 @@ public class MainManager : MonoBehaviour
         float padding = 14f;
         float rowHeight = 86f;
         float rowSpacing = 8f;
+        float deleteButtonWidth = 56f;
         float y = windowRect.y + 44f;
         int slotCount = Mathf.Max(1, SimulationConfig.SaveSlotCount);
+        bool modalActive = IsSaveModalActive();
 
         for (int i = 0; i < slotCount; i++)
         {
@@ -1002,9 +1148,55 @@ public class MainManager : MonoBehaviour
             GUI.Box(rowRect, "");
 
             SaveSlotInfo info = cachedSaveSlots != null && i < cachedSaveSlots.Length ? cachedSaveSlots[i] : null;
-            if (GUI.Button(rowRect, ""))
+            bool hasData = info != null && info.HasData;
+            Rect actionRect = rowRect;
+            if (hasData)
+                actionRect = new Rect(rowRect.x, rowRect.y, rowRect.width - deleteButtonWidth - 4f, rowRect.height);
+
+            if (hasData)
             {
-                if (info != null && info.HasData)
+                float thumbSize = rowHeight - 16f;
+                Rect thumbRect = new Rect(rowRect.x + 8f, rowRect.y + 8f, thumbSize, thumbSize);
+                if (info.Screenshot != null)
+                    GUI.DrawTexture(thumbRect, info.Screenshot, ScaleMode.ScaleToFit);
+
+                float textX = thumbRect.xMax + 12f;
+                float textWidth = actionRect.xMax - textX - 8f;
+                Rect slotLabelRect = new Rect(textX, rowRect.y + 6f, textWidth, 18f);
+                Rect timeRect = new Rect(textX, rowRect.y + 24f, textWidth, 22f);
+                Rect playRect = new Rect(textX, rowRect.y + 46f, textWidth, 22f);
+                string slotLabel = string.Format("槽位 {0}", i + 1);
+                string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
+                string timeText = string.Format("时间: {0}", savedAt);
+                string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
+                GUI.Label(new Rect(slotLabelRect.x + 1f, slotLabelRect.y + 1f, slotLabelRect.width, slotLabelRect.height), slotLabel, shadowStyle);
+                GUI.Label(slotLabelRect, slotLabel, labelStyle);
+                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
+                GUI.Label(timeRect, timeText, labelStyle);
+                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
+                GUI.Label(playRect, playText, labelStyle);
+
+                Rect deleteRect = new Rect(rowRect.xMax - deleteButtonWidth - 6f, rowRect.y + (rowHeight - 28f) * 0.5f, deleteButtonWidth, 28f);
+                if (!modalActive && GUI.Button(deleteRect, "删除"))
+                {
+                    pendingDeleteSlot = i;
+                    showDeleteConfirm = true;
+                }
+            }
+            else if (!modalActive)
+            {
+                string emptyText = string.Format("槽位 {0}  ·  空槽位（点击保存）", i + 1);
+                Rect emptyRect = new Rect(rowRect.x + 12f, rowRect.y + 8f, rowRect.width - 24f, rowHeight - 16f);
+                GUI.Label(new Rect(emptyRect.x + 1f, emptyRect.y + 1f, emptyRect.width, emptyRect.height), emptyText, shadowStyle);
+                GUI.Label(emptyRect, emptyText, labelStyle);
+            }
+
+            // 点击区域放在最后绘制；不用 GUIStyle.none（在部分版本无法接收点击）
+            Color prevBg = GUI.backgroundColor;
+            GUI.backgroundColor = new Color(1f, 1f, 1f, 0.01f);
+            if (!modalActive && GUI.Button(actionRect, GUIContent.none))
+            {
+                if (hasData)
                 {
                     pendingSaveSlot = i;
                     showSaveConfirm = true;
@@ -1014,76 +1206,38 @@ public class MainManager : MonoBehaviour
                     PerformSave(i);
                 }
             }
-
-            if (info != null && info.HasData)
-            {
-                float thumbSize = rowHeight - 16f;
-                Rect thumbRect = new Rect(rowRect.x + 8f, rowRect.y + 8f, thumbSize, thumbSize);
-                if (info.Screenshot != null)
-                    GUI.DrawTexture(thumbRect, info.Screenshot, ScaleMode.ScaleToFit);
-
-                float textX = thumbRect.xMax + 12f;
-                Rect timeRect = new Rect(textX, rowRect.y + 10f, rowRect.width - textX - 10f, 24f);
-                Rect playRect = new Rect(textX, rowRect.y + 36f, rowRect.width - textX - 10f, 24f);
-                string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
-                string timeText = string.Format("时间: {0}", savedAt);
-                string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
-                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
-                GUI.Label(timeRect, timeText, labelStyle);
-                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
-                GUI.Label(playRect, playText, labelStyle);
-            }
-            else
-            {
-                // 空存档不显示信息
-            }
+            GUI.backgroundColor = prevBg;
 
             y += rowHeight + rowSpacing;
         }
     }
 
-    void DrawSaveConfirm(GUIStyle labelStyle, GUIStyle shadowStyle)
-    {
-        if (!showSaveConfirm)
-            return;
-
-        float width = 360f;
-        float height = 140f;
-        Rect rect = new Rect(
-            (Screen.width - width) * 0.5f,
-            (Screen.height - height) * 0.5f,
-            width,
-            height);
-        lastSaveConfirmRect = rect;
-
-        GUI.Box(rect, "");
-        Rect textRect = new Rect(rect.x + 16f, rect.y + 16f, rect.width - 32f, 40f);
-        GUI.Label(new Rect(textRect.x + 1f, textRect.y + 1f, textRect.width, textRect.height), "覆盖该存档？", shadowStyle);
-        GUI.Label(textRect, "覆盖该存档？", labelStyle);
-
-        float buttonWidth = (rect.width - 48f) * 0.5f;
-        float buttonY = rect.yMax - 40f;
-        Rect okRect = new Rect(rect.x + 16f, buttonY, buttonWidth, 28f);
-        Rect cancelRect = new Rect(okRect.xMax + 16f, buttonY, buttonWidth, 28f);
-
-        if (GUI.Button(okRect, "确定"))
-        {
-            int slot = pendingSaveSlot;
-            showSaveConfirm = false;
-            pendingSaveSlot = -1;
-            PerformSave(slot);
-        }
-        if (GUI.Button(cancelRect, "取消"))
-        {
-            showSaveConfirm = false;
-            pendingSaveSlot = -1;
-        }
-    }
-
     void PerformSave(int slot)
     {
-        SaveSystem.SaveToSlot(slot, this);
-        RefreshSaveSlots(true);
+        if (saveScreenshotPending)
+            return;
+        StartCoroutine(PerformSaveCoroutine(slot));
+    }
+
+    IEnumerator PerformSaveCoroutine(int slot)
+    {
+        saveScreenshotPending = true;
+        try
+        {
+            bool restoreWindow = showSaveWindow;
+            showSaveConfirm = false;
+            showDeleteConfirm = false;
+            showSaveWindow = false;
+            yield return new WaitForEndOfFrame();
+
+            SaveSystem.SaveToSlot(slot, this);
+            showSaveWindow = restoreWindow;
+            RefreshSaveSlots(true);
+        }
+        finally
+        {
+            saveScreenshotPending = false;
+        }
     }
 
     public ViewSaveData CaptureViewState()
