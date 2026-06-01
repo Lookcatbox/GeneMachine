@@ -28,11 +28,13 @@ public struct ViewSaveData
     public bool PlayerPanelExpanded;
     public int ActivePlayerPanelTabIndex;
     public int SimulationSpeed;
+    public int ChemicalOverlayMask;
 }
 
 public static class SaveSystem
 {
-    private const int SaveVersion = 1;
+    private const int SaveVersion = 2;
+    private const int LegacySaveVersion = 1;
     private static int pendingLoadSlot = -1;
 
     public static bool HasPendingLoadSlot => pendingLoadSlot >= 0;
@@ -65,54 +67,6 @@ public static class SaveSystem
         return infos;
     }
 
-    /// <summary>
-    /// 释放存档列表中的截图纹理，避免重复加载时内存泄漏。
-    /// </summary>
-    public static void ReleaseSlotTextures(SaveSlotInfo[] infos)
-    {
-        if (infos == null)
-            return;
-        for (int i = 0; i < infos.Length; i++)
-        {
-            if (infos[i] != null && infos[i].Screenshot != null)
-            {
-                UnityEngine.Object.Destroy(infos[i].Screenshot);
-                infos[i].Screenshot = null;
-            }
-        }
-    }
-
-    /// <summary>
-    /// 删除指定槽位的全部存档文件（数据、元数据、截图）。
-    /// </summary>
-    public static bool DeleteSlot(int slot)
-    {
-        if (slot < 0)
-            return false;
-
-        bool deleted = false;
-        string dataPath = GetSlotDataPath(slot);
-        string metaPath = GetSlotMetaPath(slot);
-        string screenshotPath = GetSlotScreenshotPath(slot);
-
-        if (File.Exists(dataPath))
-        {
-            File.Delete(dataPath);
-            deleted = true;
-        }
-        if (File.Exists(metaPath))
-        {
-            File.Delete(metaPath);
-            deleted = true;
-        }
-        if (File.Exists(screenshotPath))
-        {
-            File.Delete(screenshotPath);
-            deleted = true;
-        }
-        return deleted;
-    }
-
     public static string FormatPlayTime(double seconds)
     {
         if (seconds < 0) seconds = 0;
@@ -135,7 +89,12 @@ public static class SaveSystem
         string metaPath = GetSlotMetaPath(slot);
         string screenshotPath = GetSlotScreenshotPath(slot);
 
-        // 先写元数据，再写二进制，避免仅有 bin 无 json 导致时间不显示
+        using (FileStream stream = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (BinaryWriter writer = new BinaryWriter(stream))
+        {
+            WriteSaveData(writer, manager);
+        }
+
         SaveSlotMeta meta = new SaveSlotMeta
         {
             savedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -143,20 +102,6 @@ public static class SaveSystem
         };
         File.WriteAllText(metaPath, JsonUtility.ToJson(meta));
 
-        using (FileStream stream = new FileStream(dataPath, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (BinaryWriter writer = new BinaryWriter(stream))
-        {
-            WriteSaveData(writer, manager);
-        }
-
-        CaptureSlotScreenshot(screenshotPath);
-    }
-
-    /// <summary>
-    /// 捕获当前画面并写入指定截图路径（调用方需确保 UI 已隐藏）。
-    /// </summary>
-    public static void CaptureSlotScreenshot(string screenshotPath)
-    {
         Texture2D screenshot = ScreenCapture.CaptureScreenshotAsTexture();
         if (screenshot != null)
         {
@@ -164,11 +109,6 @@ public static class SaveSystem
             File.WriteAllBytes(screenshotPath, png);
             UnityEngine.Object.Destroy(screenshot);
         }
-    }
-
-    public static void CaptureSlotScreenshot(int slot)
-    {
-        CaptureSlotScreenshot(GetSlotScreenshotPath(slot));
     }
 
     public static bool LoadSlotIntoSimulation(int slot, MainManager manager)
@@ -191,7 +131,6 @@ public static class SaveSystem
         string metaPath = GetSlotMetaPath(slot);
         string screenshotPath = GetSlotScreenshotPath(slot);
 
-        // 以 .bin 为存档是否存在的依据（兼容仅有 bin、缺少 json 的旧档）
         if (!File.Exists(dataPath))
         {
             info.HasData = false;
@@ -199,9 +138,7 @@ public static class SaveSystem
         }
 
         info.HasData = true;
-        info.SavedAt = "";
-        info.PlaySeconds = 0;
-
+        bool metaLoaded = false;
         if (File.Exists(metaPath))
         {
             try
@@ -210,39 +147,81 @@ public static class SaveSystem
                 SaveSlotMeta meta = JsonUtility.FromJson<SaveSlotMeta>(json);
                 if (meta != null)
                 {
-                    info.SavedAt = meta.savedAt ?? "";
+                    info.SavedAt = meta.savedAt;
                     info.PlaySeconds = meta.playSeconds;
+                    metaLoaded = true;
                 }
             }
             catch (Exception)
             {
-                // 元数据损坏时走下方兜底
+                metaLoaded = false;
+            }
+        }
+
+        if (!metaLoaded)
+        {
+            info.SavedAt = File.GetLastWriteTime(dataPath).ToString("yyyy-MM-dd HH:mm:ss");
+            if (TryReadPlaySecondsFromData(dataPath, out double playSeconds))
+                info.PlaySeconds = playSeconds;
+        }
+        else
+        {
+            // meta exists but may miss fields (empty savedAt or zero playSeconds)
+            if (string.IsNullOrEmpty(info.SavedAt))
+                info.SavedAt = File.GetLastWriteTime(dataPath).ToString("yyyy-MM-dd HH:mm:ss");
+            if (info.PlaySeconds <= 0)
+            {
+                if (TryReadPlaySecondsFromData(dataPath, out double playSeconds2))
+                    info.PlaySeconds = playSeconds2;
             }
         }
 
         if (string.IsNullOrEmpty(info.SavedAt))
             info.SavedAt = File.GetLastWriteTime(dataPath).ToString("yyyy-MM-dd HH:mm:ss");
+        if (info.PlaySeconds < 0)
+            info.PlaySeconds = 0;
 
         if (File.Exists(screenshotPath))
         {
-            try
-            {
-                byte[] bytes = File.ReadAllBytes(screenshotPath);
-                Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-                tex.filterMode = FilterMode.Point;
-                tex.wrapMode = TextureWrapMode.Clamp;
-                if (tex.LoadImage(bytes))
-                    info.Screenshot = tex;
-                else
-                    UnityEngine.Object.Destroy(tex);
-            }
-            catch (Exception)
-            {
-                // 截图损坏时忽略，仍显示文字信息
-            }
+            byte[] bytes = File.ReadAllBytes(screenshotPath);
+            Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.LoadImage(bytes);
+            info.Screenshot = tex;
         }
 
         return info;
+    }
+
+    private static bool TryReadPlaySecondsFromData(string dataPath, out double playSeconds)
+    {
+        playSeconds = 0;
+        try
+        {
+            using (FileStream stream = new FileStream(dataPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (BinaryReader reader = new BinaryReader(stream))
+            {
+                int version = reader.ReadInt32();
+                if (version != SaveVersion && version != LegacySaveVersion)
+                    return false;
+
+                reader.ReadInt32();
+                reader.ReadInt32();
+                reader.ReadInt64();
+                reader.ReadInt64();
+                reader.ReadInt64();
+                reader.ReadInt32();
+                reader.ReadInt32();
+                reader.ReadInt32();
+                playSeconds = reader.ReadDouble();
+                return true;
+            }
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     private static string EnsureSaveDirectory()
@@ -298,6 +277,8 @@ public static class SaveSystem
                 writer.Write(env.Temp);
                 writer.Write(env.Light);
                 writer.Write(env.MaxCellNum);
+                for (int s = 0; s < (int)ChemicalSubstance.Count; s++)
+                    writer.Write(env.GetChemicalAmount((ChemicalSubstance)s));
             }
         }
 
@@ -319,8 +300,10 @@ public static class SaveSystem
     private static bool ReadSaveData(BinaryReader reader, MainManager manager)
     {
         int version = reader.ReadInt32();
-        if (version != SaveVersion)
+        if (version != SaveVersion && version != LegacySaveVersion)
             return false;
+
+        ChemistrySystem.Init();
 
         int size = reader.ReadInt32();
         if (size != SimulationConfig.EnvirSize)
@@ -337,7 +320,7 @@ public static class SaveSystem
 
         SimulationConfig.WorldSeed = worldSeed;
 
-        ViewSaveData viewData = ReadViewData(reader);
+        ViewSaveData viewData = ReadViewData(reader, version);
         DeviceSystemSaveData deviceState = ReadDeviceState(reader);
 
         Envir[,] envirData = new Envir[size + 2, size + 2];
@@ -356,6 +339,20 @@ public static class SaveSystem
                 env.Topography = topo;
                 env.Temp = temp;
                 env.Light = light;
+
+                if (version >= SaveVersion)
+                {
+                    for (int s = 0; s < (int)ChemicalSubstance.Count; s++)
+                    {
+                        float amount = reader.ReadSingle();
+                        env.SetChemicalAmount((ChemicalSubstance)s, amount);
+                    }
+                }
+                else
+                {
+                    ChemistrySystem.ApplyBaselineForTopography(env);
+                }
+
                 envirData[x, y] = env;
             }
         }
@@ -419,9 +416,10 @@ public static class SaveSystem
         writer.Write(data.PlayerPanelExpanded);
         writer.Write(data.ActivePlayerPanelTabIndex);
         writer.Write(data.SimulationSpeed);
+        writer.Write(data.ChemicalOverlayMask);
     }
 
-    private static ViewSaveData ReadViewData(BinaryReader reader)
+    private static ViewSaveData ReadViewData(BinaryReader reader, int saveVersion)
     {
         ViewSaveData data = new ViewSaveData();
         data.CameraPosition = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
@@ -432,7 +430,16 @@ public static class SaveSystem
         data.PlayerPanelExpanded = reader.ReadBoolean();
         data.ActivePlayerPanelTabIndex = reader.ReadInt32();
         data.SimulationSpeed = reader.ReadInt32();
+        if (saveVersion >= SaveVersion)
+            data.ChemicalOverlayMask = reader.ReadInt32();
+        else
+            data.ChemicalOverlayMask = 0;
         return data;
+    }
+
+    private static ViewSaveData ReadViewData(BinaryReader reader)
+    {
+        return ReadViewData(reader, SaveVersion);
     }
 
     private static void WriteDeviceState(BinaryWriter writer, DeviceSystemSaveData data)
@@ -544,5 +551,53 @@ public static class SaveSystem
         if (gene.hashId <= SimulationConfig.GeneNum)
             return 0;
         return gene.hashId & 0xFFFFFF;
+    }
+
+    /// <summary>
+    /// 释放存档列表中的截图纹理，避免重复加载时内存泄漏。
+    /// </summary>
+    public static void ReleaseSlotTextures(SaveSlotInfo[] infos)
+    {
+        if (infos == null)
+            return;
+        for (int i = 0; i < infos.Length; i++)
+        {
+            if (infos[i] != null && infos[i].Screenshot != null)
+            {
+                UnityEngine.Object.Destroy(infos[i].Screenshot);
+                infos[i].Screenshot = null;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 删除指定槽位的全部存档文件（数据、元数据、截图）。
+    /// </summary>
+    public static bool DeleteSlot(int slot)
+    {
+        if (slot < 0)
+            return false;
+
+        bool deleted = false;
+        string dataPath = GetSlotDataPath(slot);
+        string metaPath = GetSlotMetaPath(slot);
+        string screenshotPath = GetSlotScreenshotPath(slot);
+
+        if (File.Exists(dataPath))
+        {
+            File.Delete(dataPath);
+            deleted = true;
+        }
+        if (File.Exists(metaPath))
+        {
+            File.Delete(metaPath);
+            deleted = true;
+        }
+        if (File.Exists(screenshotPath))
+        {
+            File.Delete(screenshotPath);
+            deleted = true;
+        }
+        return deleted;
     }
  }

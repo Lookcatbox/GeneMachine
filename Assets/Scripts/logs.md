@@ -1,90 +1,69 @@
 # 修改日志
 
-## 2026-05-31 存档确认弹窗点击修复
+## 2026-06-02 修复化学视图不随回合刷新
 
 ### 修改文件
 
-#### Core/MainManager.cs
-- 覆盖/删除确认改用 `GUI.ModalWindow`，移除全屏 `GUIStyle.none` 拦截按钮（该按钮会吞掉确认框点击）。
-- 存档槽点击区域改为最后绘制，使用半透明标准按钮样式。
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 新增化学数据版本号，每次环境反应更新后递增。
 
-#### Core/MainMenuManager.cs
-- 删除确认同步改用 `GUI.ModalWindow` 与相同点击修复。
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 物质热力图改为监听化学数据版本号变化，而不是复用科研回合计数判断刷新。
 
-## 2026-05-31 存档系统修复与删除功能
+## 2026-06-02 修复化学视图拖动卡死
 
 ### 修改文件
 
-#### Core/SimulationConfig.cs
-- 新增 `SaveModalOverlayAlpha` 存档弹窗遮罩透明度。
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 化学物质叠加层改用独立的更新步数与更新时间缓存，避免单独显示化学视图时每帧重建热力图导致地图拖动卡顿。
 
-#### Core/SaveSystem.cs
-- 以 `.bin` 为存档存在依据，兼容缺少 json 的旧档；元数据优先读 json，时间兜底用文件修改时间。
-- 保存时先写 json 再写 bin，降低时间不显示概率。
-- 新增 `DeleteSlot`、`ReleaseSlotTextures`、`CaptureSlotScreenshot`。
-- 截图加载失败时不再导致整条存档信息异常。
+## 2026-06-02 修复编译错误（Restore 缺失 API）
 
-#### Core/MainManager.cs
-- 覆盖/删除确认弹窗增加全屏遮罩，修复点击穿透到下层存档槽。
-- 新增删除存档、Esc 关闭弹窗、槽位编号与空槽提示。
-- 保存时短暂隐藏 UI 再截图，避免缩略图带存档界面。
-- 刷新槽位时释放旧截图纹理，防止内存泄漏。
+### 修改文件
 
-#### Core/MainMenuManager.cs
-- 同步删除存档、确认弹窗遮罩、槽位显示与纹理释放逻辑。
+#### Assets/Scripts/Core/SaveSystem.cs
+- 恢复 `ReleaseSlotTextures`、`DeleteSlot`（化学反应存档改动时误删）。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 恢复 `GeneViewDimAlpha`、`SaveModalOverlayAlpha`、`DeviceResearchStationCraftMax`、`DeviceDefaultCraftMax`。
+
+## 2026-06-02 化学反应系统（续完中断任务）
+
+> 依据 `.docs/ai-logs/copilot-2026-04-21` 中断前的 grill-me 设计结论补全；UI/渲染层此前已就绪，本次补齐核心逻辑与存档。
+
+### 新增文件
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 5 种物质（有机物、CO2、H2、H2S、硫酸盐）与 5 条非生物环境反应。
+- 按优先级并行更新各环境格；动力方程为 `baseRate * min(反应物量/系数)^power`。
+- 地形基准浓度、热力图归一化、叠加视图 mask 管理；切换物质时自动开启 Chemical 叠加层。
+
+### 修改文件
+
+#### Assets/Scripts/Entities/Envir.cs
+- 新增 `ChemAmounts` 数组及读写接口。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增化学物质基准值、反应速率/条件、热力图颜色与归一化上限。
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 世界初始化时播种化学物质；每步在热扩散后执行环境反应。
+
+#### Assets/Scripts/Core/SaveSystem.cs
+- 存档版本升至 2：保存/读取每格化学量与化学 overlay mask；兼容 v1 读档。
+
+#### Assets/Scripts/Core/MainManager.cs
+- 视图存档读写 `ChemicalOverlayMask`（此前已改，本次 SaveSystem 对齐）。
 
 #### CodeMenu.md
-- 补充 SaveSystem、MainMenuManager 简介，更新 MainManager 说明。
+- 已登记 ChemistrySystem 与 Envir/EnvironmentPlayerPanelTab（无需再改）。
 
-## 2026-05-31 修复 Package Manager 依赖冲突
-
-### 修改文件
-
-#### Packages/manifest.json
-- 移除当前编辑器无法解析的包：`multiplayer.center`、`test-framework`、`visualscripting`、`timeline`、`ugui@2.0.0` 及 `accessibility`/`adaptiveperformance`/`vectorgraphics`/`infinity` 等模块。
-- 保留项目实际需要的 2D 功能包与标准引擎模块，`ugui` 降为 `1.0.0` 以兼容 2022.3 LTS。
-
-#### Packages/packages-lock.json
-- 删除旧锁文件，由编辑器重新生成。
-
-## 2026-05-31 future.md 功能实现
+## 2026-05-30 Git 推送兼容修复
 
 ### 修改文件
 
-#### Core/SimulationConfig.cs
-- 新增 `DeviceDefaultCraftMax`、`DeviceResearchStationCraftMax` 装置制造上限配置。
-- 新增 `GeneViewDimAlpha` 基因视图未匹配细胞透明度。
-
-#### Core/DeviceSystem.cs
-- `DeviceType` 增加 `CraftMax` 属性。
-- 新增 `GetCraftMax`、`CanCraftDevice`；`TryCraftDevice` / `GetCraftCost`  enforce 制造上限。
-
-#### Core/DevicePlayerPanelTab.cs
-- 制作按钮与详情文案支持制造上限显示（已制作 x/y、已达上限提示）。
-
-#### Core/SaveSystem.cs
-- 存档元数据缺失保存时间时，用 `.bin` 文件修改时间兜底。
-
-#### Core/MainMenuManager.cs
-- 读取存档窗口时间与时长标签改用白字+阴影样式，修复深色背景不可见问题。
-
-#### Core/MainManager.cs
-- 存档窗口空时间显示 `--`；新局/读档时重置基因视图筛选。
-
-#### Core/GenePlayerPanelTab.cs
-- 实现全图基因列表与基因视图筛选交互（点击切换/清除）。
-
-#### Entities/Gene.cs
-- 新增 baseId 名称/描述目录、`BuildPresenceList` 全图基因统计 API。
-
-#### Entities/Cell.cs
-- 新增 `HasGeneBaseId` 查询方法。
-
-#### Managers/CellRenderer.cs
-- 新增 `geneFilterBaseId` 与 dim 材质批次，基因视图下未匹配细胞 50% 透明。
-
-#### CodeMenu.md
-- 更新上述文件简介。
+#### auto-upload-git.ps1
+- 推送时强制使用 `HTTP/1.1`，规避部分 Windows 环境下 GitHub HTTPS 连接被重置的问题。
 
 ## 2026-05-30 远程地址同步修复
 

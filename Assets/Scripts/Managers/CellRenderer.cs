@@ -37,7 +37,7 @@ public class CellRenderer : MonoBehaviour
     // 视图模式
     public enum BaseViewMode { Terrain = 0, Altitude = 1 }
     [System.Flags]
-    public enum OverlayViewMode { None = 0, Temperature = 1, Light = 2 }
+    public enum OverlayViewMode { None = 0, Temperature = 1, Light = 2, Chemical = 4 }
     public static BaseViewMode currentBaseViewMode = BaseViewMode.Terrain;
     public static OverlayViewMode currentOverlayViewMode = OverlayViewMode.None;
     public static bool normalLightingEnabled = true;
@@ -65,6 +65,15 @@ public class CellRenderer : MonoBehaviour
     private int overlayTextureSize;
     private int overlayDownsampleFactor = 1;
 
+    // 化学物质叠加层（CPU 预计算颜色）
+    private Texture2D chemicalOverlayTexture;
+    private Material chemicalOverlayMaterial;
+    private Color32[] chemicalOverlayPixels;
+    private bool chemicalOverlayDirty = true;
+    private int lastChemicalOverlayMask = 0;
+    private long lastChemicalOverlayRevision = -1;
+    private float lastChemicalOverlayUpdateTime = 0f;
+
     void Start()
     {
         instance = this;
@@ -80,6 +89,13 @@ public class CellRenderer : MonoBehaviour
         CreateLineMaterial();
         CreateBackground();
         CreateOverlay();
+        CreateChemicalOverlay();
+    }
+
+    public static void InvalidateChemicalOverlay()
+    {
+        if (instance != null)
+            instance.chemicalOverlayDirty = true;
     }
 
     void CreateCircleTexture()
@@ -384,6 +400,24 @@ public class CellRenderer : MonoBehaviour
         overlayMesh.RecalculateNormals();
     }
 
+    void CreateChemicalOverlay()
+    {
+        int size = SimulationConfig.EnvirSize;
+        int factor = Mathf.Max(1, overlayDownsampleFactor);
+        int texSize = Mathf.Max(1, size / factor);
+        chemicalOverlayTexture = new Texture2D(texSize, texSize, TextureFormat.RGBA32, false);
+        chemicalOverlayTexture.filterMode = FilterMode.Bilinear;
+        chemicalOverlayTexture.wrapMode = TextureWrapMode.Clamp;
+        chemicalOverlayPixels = new Color32[texSize * texSize];
+
+        Shader shader = Shader.Find("Sprites/Default");
+        if (shader == null)
+            shader = Shader.Find("Unlit/Transparent");
+        chemicalOverlayMaterial = new Material(shader);
+        chemicalOverlayMaterial.mainTexture = chemicalOverlayTexture;
+        chemicalOverlayMaterial.color = Color.white;
+    }
+
     void UpdateBackgroundTexture()
     {
         if (SimulationCore.EnvirData == null) return;
@@ -637,6 +671,78 @@ public class CellRenderer : MonoBehaviour
         overlayDirty = false;
     }
 
+    void UpdateChemicalOverlayTexture()
+    {
+        if (SimulationCore.EnvirData == null)
+            return;
+
+        int mask = ChemistrySystem.ChemicalOverlayMask;
+        if (mask == 0)
+            return;
+
+        int size = SimulationConfig.EnvirSize;
+        int factor = Mathf.Max(1, overlayDownsampleFactor);
+        int texSize = Mathf.Max(1, overlayTextureSize);
+        byte overlayAlpha = (byte)Mathf.Clamp(Mathf.RoundToInt(SimulationConfig.OverlayAlpha * 255f), 0, 255);
+
+        for (int y = 0; y < texSize; y++)
+        {
+            int envY = 1 + y * factor + factor / 2;
+            if (envY > size) envY = size;
+            for (int x = 0; x < texSize; x++)
+            {
+                int envX = 1 + x * factor + factor / 2;
+                if (envX > size) envX = size;
+                Envir env = SimulationCore.EnvirData[envX, envY];
+
+                Color rgb = Color.black;
+                float weightSum = 0f;
+                float maxIntensity = 0f;
+                ChemicalSubstance[] substances = ChemistrySystem.DefaultOrder;
+                for (int i = 0; i < substances.Length; i++)
+                {
+                    ChemicalSubstance substance = substances[i];
+                    int bit = 1 << (int)substance;
+                    if ((mask & bit) == 0)
+                        continue;
+
+                    float norm = ChemistrySystem.NormalizeOverlayAmount(substance, env.GetChemicalAmount(substance));
+                    if (norm <= 0f)
+                        continue;
+
+                    Color substanceColor = ChemistrySystem.GetSubstanceColor(substance);
+                    rgb += substanceColor * norm;
+                    weightSum += norm;
+                    if (norm > maxIntensity)
+                        maxIntensity = norm;
+                }
+
+                Color32 pixel;
+                if (weightSum > 0f)
+                {
+                    rgb /= weightSum;
+                    byte alpha = (byte)Mathf.Clamp(Mathf.RoundToInt(maxIntensity * overlayAlpha), 0, 255);
+                    pixel = new Color32(
+                        (byte)Mathf.Clamp(Mathf.RoundToInt(rgb.r * 255f), 0, 255),
+                        (byte)Mathf.Clamp(Mathf.RoundToInt(rgb.g * 255f), 0, 255),
+                        (byte)Mathf.Clamp(Mathf.RoundToInt(rgb.b * 255f), 0, 255),
+                        alpha);
+                }
+                else
+                {
+                    pixel = new Color32(0, 0, 0, 0);
+                }
+
+                chemicalOverlayPixels[y * texSize + x] = pixel;
+            }
+        }
+
+        chemicalOverlayTexture.SetPixels32(chemicalOverlayPixels);
+        chemicalOverlayTexture.Apply();
+        chemicalOverlayDirty = false;
+        lastChemicalOverlayMask = mask;
+    }
+
     void LateUpdate()
     {
         if (SimulationCore.EnvirData == null || cameraController == null) return;
@@ -663,7 +769,8 @@ public class CellRenderer : MonoBehaviour
             Graphics.DrawMesh(bgMesh, Matrix4x4.identity, bgMaterial, 0);
 
         // 温度/光照模式：渲染半透明叠加层
-        if (currentOverlayViewMode != OverlayViewMode.None)
+        bool showTempLight = (currentOverlayViewMode & (OverlayViewMode.Temperature | OverlayViewMode.Light)) != 0;
+        if (showTempLight)
         {
             if (currentOverlayViewMode != lastOverlayViewMode)
             {
@@ -689,7 +796,40 @@ public class CellRenderer : MonoBehaviour
             if (overlayMesh != null && overlayMaterial != null)
                 Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, overlayMaterial, 0);
         }
+
+        // 化学物质叠加层：可与温度/光照叠加显示
+        bool showChemical = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0;
+        if (showChemical)
+        {
+            int currentMask = ChemistrySystem.ChemicalOverlayMask;
+            if (currentMask != lastChemicalOverlayMask)
+                chemicalOverlayDirty = true;
+
+            long currentRevision = ChemistrySystem.GetChemicalRevision();
+            float minInterval = Mathf.Max(0f, SimulationConfig.OverlayUpdateMinIntervalSeconds);
+            if (currentRevision != lastChemicalOverlayRevision)
+            {
+                chemicalOverlayDirty = true;
+                lastChemicalOverlayRevision = currentRevision;
+            }
+
+            float now = Time.realtimeSinceStartup;
+            if (chemicalOverlayDirty && (minInterval <= 0f || now - lastChemicalOverlayUpdateTime >= minInterval))
+            {
+                UpdateChemicalOverlayTexture();
+                lastChemicalOverlayUpdateTime = now;
+            }
+
+            if (overlayMesh != null && chemicalOverlayMaterial != null && currentMask != 0)
+                Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, chemicalOverlayMaterial, 0);
+        }
         else
+        {
+            lastChemicalOverlayMask = 0;
+            lastChemicalOverlayRevision = -1;
+        }
+
+        if (!showTempLight && !showChemical)
         {
             lastOverlayViewMode = OverlayViewMode.None;
         }

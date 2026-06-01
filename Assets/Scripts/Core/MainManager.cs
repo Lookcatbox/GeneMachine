@@ -1255,6 +1255,7 @@ public class MainManager : MonoBehaviour
         data.PlayerPanelExpanded = playerPanelExpanded;
         data.ActivePlayerPanelTabIndex = activePlayerPanelTabIndex;
         data.SimulationSpeed = simulationSpeed;
+        data.ChemicalOverlayMask = ChemistrySystem.ChemicalOverlayMask;
         return data;
     }
 
@@ -1273,5 +1274,6 @@ public class MainManager : MonoBehaviour
         activePlayerPanelTabIndex = Mathf.Clamp(data.ActivePlayerPanelTabIndex, 0, Mathf.Max(0, playerPanelTabCount - 1));
         simulationSpeed = Mathf.Clamp(data.SimulationSpeed, 1, 10);
         SimulationCore.SetSpeedMultiplier(simulationSpeed);
+        ChemistrySystem.SetChemicalOverlayMask(data.ChemicalOverlayMask);
     }
 }

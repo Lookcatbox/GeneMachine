@@ -48,7 +48,7 @@ try {
     git commit -m $Message
 
     Write-Step "Pushing to $Remote/$Branch"
-    git push -u $Remote $Branch
+    git -c http.version=HTTP/1.1 push -u $Remote $Branch
 
     Write-Step "Done"
 }

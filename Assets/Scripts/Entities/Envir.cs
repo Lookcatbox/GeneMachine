@@ -15,6 +15,8 @@ public class Envir
 
     public Cell[] CellList;       // 该格中的细胞列表（下标从1开始）
 
+    public float[] ChemAmounts;   // 各化学物质存量（单位），下标对应 ChemicalSubstance
+
     public Envir() : this(SimulationConfig.CellMaxNum)
     {
     }
@@ -26,6 +28,32 @@ public class Envir
         CellNum = 0;
         Temp = SimulationConfig.DefaultTemp;
         Light = SimulationConfig.DefaultLight;
+        ChemAmounts = new float[(int)ChemicalSubstance.Count];
+    }
+
+    public float GetChemicalAmount(ChemicalSubstance substance)
+    {
+        if (ChemAmounts == null)
+            return 0f;
+        int index = (int)substance;
+        if (index < 0 || index >= ChemAmounts.Length)
+            return 0f;
+        return ChemAmounts[index];
+    }
+
+    public void SetChemicalAmount(ChemicalSubstance substance, float amount)
+    {
+        if (ChemAmounts == null)
+            ChemAmounts = new float[(int)ChemicalSubstance.Count];
+        int index = (int)substance;
+        if (index < 0 || index >= ChemAmounts.Length)
+            return;
+        ChemAmounts[index] = amount < 0f ? 0f : amount;
+    }
+
+    public void AddChemicalAmount(ChemicalSubstance substance, float delta)
+    {
+        SetChemicalAmount(substance, GetChemicalAmount(substance) + delta);
     }
 
     /// <summary>

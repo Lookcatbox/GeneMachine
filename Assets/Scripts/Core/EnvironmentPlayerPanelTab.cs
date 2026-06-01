@@ -19,6 +19,16 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
             return;
         }
 
+        float infoHeight = 210f;
+        Rect infoRect = new Rect(innerRect.x, innerRect.y, innerRect.width, infoHeight);
+        DrawEnvironmentInfo(infoRect, context, contentStyle, contentShadowStyle);
+
+        Rect chemRect = new Rect(innerRect.x, infoRect.yMax + 8f, innerRect.width, innerRect.yMax - infoRect.yMax - 8f);
+        DrawChemicalList(chemRect, context, contentStyle, contentShadowStyle);
+    }
+
+    void DrawEnvironmentInfo(Rect rect, PlayerPanelContext context, GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
         Envir env = context.DisplayEnvironment;
         float tempC = SimulationCore.KelvinToCelsius(env.Temp);
         int playerCount = 0;
@@ -42,28 +52,99 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
         string sourceText = context.HasLockedEnvironmentCell ? "锁定" : "悬停";
         string lockHint = context.HasLockedEnvironmentCell
-            ? string.Format("当前锁定坐标: ({0}, {1})。再次点击同一格可取消锁定。", context.LockedEnvironmentX, context.LockedEnvironmentY)
-            : "当前未锁定，左键点击环境格可固定显示。";
+            ? string.Format("锁定 ({0},{1})，再次点击取消。", context.LockedEnvironmentX, context.LockedEnvironmentY)
+            : "左键点击环境格可固定显示。";
 
         string infoText = string.Format(
-            "显示来源: {0}\n坐标: ({1}, {2})\n地形类型: {3} ({4})\n高度 Height: {5}\n温度 Temp: {6}\n光照 Light: {7}\n当前细胞数 CellNum: {8}\n最大容量 MaxCellNum: {9}\nCellList 长度: {10}\n玩家细胞数: {11}\nNPC细胞数: {12}\n最高优先级: {13}\n\n{14}",
+            "来源: {0} | 坐标: ({1}, {2})\n地形: {3} | 高度: {4} | 温度: {5}°C | 光照: {6}\n细胞: {7}/{8} (玩家 {9}, NPC {10}) | 最高优先级: {11}\n{12}",
             sourceText,
             context.DisplayEnvironmentX,
             context.DisplayEnvironmentY,
             GetTopographyName(env.Topography),
-            env.Topography,
             env.Height,
             tempC.ToString("F1"),
             env.Light,
             env.CellNum,
             env.MaxCellNum,
-            env.CellList != null ? env.CellList.Length - 1 : 0,
             playerCount,
             npcCount,
             maxPriority,
             lockHint);
 
-        DrawTextBlock(innerRect, infoText, contentStyle, contentShadowStyle);
+        DrawTextBlock(rect, infoText, labelStyle, shadowStyle);
+    }
+
+    void DrawChemicalList(Rect rect, PlayerPanelContext context, GUIStyle labelStyle, GUIStyle shadowStyle)
+    {
+        Envir env = context.DisplayEnvironment;
+        GUI.Box(rect, "");
+
+        float padding = 8f;
+        float headerHeight = 28f;
+        Rect headerRect = new Rect(rect.x + padding, rect.y + padding, rect.width - padding * 2f, headerHeight);
+        int overlayMask = ChemistrySystem.ChemicalOverlayMask;
+        string headerText = overlayMask != 0 ? "物质列表（点击切换地图热力图）" : "物质列表（点击显示浓度热力图）";
+        DrawTextBlock(headerRect, headerText, labelStyle, shadowStyle);
+
+        if (overlayMask != 0)
+        {
+            float clearWidth = 88f;
+            Rect clearRect = new Rect(headerRect.xMax - clearWidth, headerRect.y, clearWidth, headerHeight);
+            if (GUI.Button(clearRect, "清除视图"))
+                ChemistrySystem.SetChemicalOverlayMask(0);
+        }
+
+        float rowHeight = 34f;
+        float rowSpacing = 4f;
+        float y = headerRect.yMax + 6f;
+        float rowWidth = rect.width - padding * 2f;
+        ChemicalSubstance[] substances = ChemistrySystem.DefaultOrder;
+
+        for (int i = 0; i < substances.Length; i++)
+        {
+            if (y + rowHeight > rect.yMax - padding)
+                break;
+
+            ChemicalSubstance substance = substances[i];
+            bool selected = ChemistrySystem.IsChemicalOverlaySelected(substance);
+            Rect rowRect = new Rect(rect.x + padding, y, rowWidth, rowHeight);
+
+            GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
+            if (GUI.Button(rowRect, ""))
+                ChemistrySystem.ToggleChemicalOverlay(substance);
+            GUI.backgroundColor = Color.white;
+
+            Color substanceColor = ChemistrySystem.GetSubstanceColor(substance);
+            Rect swatchRect = new Rect(rowRect.x + 6f, rowRect.y + 8f, 18f, 18f);
+            GUI.color = substanceColor;
+            GUI.DrawTexture(swatchRect, Texture2D.whiteTexture);
+            GUI.color = Color.white;
+
+            string phaseName = GetPhaseName(ChemistrySystem.GetSubstancePhase(substance));
+            float amount = env.GetChemicalAmount(substance);
+            string rowText = string.Format("{0} ({1})  {2:F2} 单位{3}",
+                ChemistrySystem.GetSubstanceName(substance),
+                phaseName,
+                amount,
+                selected ? "  [显示中]" : "");
+
+            Rect textRect = new Rect(swatchRect.xMax + 8f, rowRect.y + 6f, rowRect.width - 40f, rowHeight - 8f);
+            GUI.Label(new Rect(textRect.x + 1f, textRect.y + 1f, textRect.width, textRect.height), rowText, shadowStyle);
+            GUI.Label(textRect, rowText, labelStyle);
+
+            y += rowHeight + rowSpacing;
+        }
+    }
+
+    string GetPhaseName(ChemicalPhase phase)
+    {
+        switch (phase)
+        {
+            case ChemicalPhase.Solid: return "固";
+            case ChemicalPhase.Liquid: return "液";
+            case ChemicalPhase.Gas: return "气";
+            default: return "?";
+        }
     }
 
     string GetTopographyName(int topography)

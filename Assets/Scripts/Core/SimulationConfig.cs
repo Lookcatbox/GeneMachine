@@ -145,8 +145,9 @@ public static class SimulationConfig
     public static int DeviceSeedStorageRange = 10; // 欧拉距离半径
     public static int DeviceResearchStationTypeId = 2;
     public static int DeviceResearchStationRange = 10; // 欧拉距离半径
-    public static int DeviceDefaultCraftMax = 3; // 可制作装置默认制造上限（0=不限）
+    public static int DeviceResearchStationCraftLimit = 3;
     public static int DeviceResearchStationCraftMax = 3; // 科研装置制造上限
+    public static int DeviceDefaultCraftMax = 3; // 可制作装置默认制造上限（0=不限）
     public static int DeviceIconSize = 24;
     public static int DevicePreviewSize = 24;
     public static float DevicePanelListRatio = 0.33f; // 装置列表占比
@@ -154,6 +155,9 @@ public static class SimulationConfig
     public static string DeviceTransparentHex = "7F7F7F";
     public static Color32 DeviceTransparentColor = new Color32(127, 127, 127, 255);
     public static Color DeviceRangeOverlayColor = new Color(0.15f, 0.9f, 0.35f, 0.25f);
+    public static float GeneViewNonMatchAlpha = 0.5f;
+    public static float GeneViewDimAlpha = 0.5f; // 基因视图中未匹配细胞的透明度
+    public static int GeneListRefreshStepInterval = 10;
 
     // 研发点与科研装置
     public static int ResearchBaseGainPerStep = 100;
@@ -218,6 +222,64 @@ public static class SimulationConfig
     // 叠加层透明度（温度/光照视图覆盖在地形上方）
     public static float OverlayAlpha = 0.55f;
 
-    // 基因视图
-    public static float GeneViewDimAlpha = 0.5f; // 基因视图中未匹配细胞的透明度
+    // 化学物质：动力方程指数 min(反应物量/系数)^power
+    public static float ChemKineticsPower = 0.75f;
+
+    // 地形基准浓度（陆地 / 水域）
+    public static float ChemBaselineOrganicLand = 2.5f;
+    public static float ChemBaselineOrganicWater = 0.4f;
+    public static float ChemBaselineCO2Land = 1.2f;
+    public static float ChemBaselineCO2Water = 2.0f;
+    public static float ChemBaselineH2Land = 0.3f;
+    public static float ChemBaselineH2Water = 0.8f;
+    public static float ChemBaselineH2SLand = 0.2f;
+    public static float ChemBaselineH2SWater = 0.6f;
+    public static float ChemBaselineSulfateLand = 0.5f;
+    public static float ChemBaselineSulfateWater = 1.5f;
+
+    // 热力图归一化上限
+    public static float ChemOverlayMaxOrganic = 8f;
+    public static float ChemOverlayMaxCO2 = 6f;
+    public static float ChemOverlayMaxH2 = 4f;
+    public static float ChemOverlayMaxH2S = 4f;
+    public static float ChemOverlayMaxSulfate = 5f;
+
+    // 物质热力图颜色
+    public static Color ChemColorOrganic = new Color(0.35f, 0.55f, 0.22f);
+    public static Color ChemColorCO2 = new Color(0.55f, 0.55f, 0.55f);
+    public static Color ChemColorH2 = new Color(0.20f, 0.75f, 0.85f);
+    public static Color ChemColorH2S = new Color(0.90f, 0.80f, 0.15f);
+    public static Color ChemColorSulfate = new Color(0.75f, 0.78f, 0.95f);
+
+    // 非生物反应速率
+    public static float ChemRateR1 = 0.05f;
+    public static float ChemRateR2 = 0.05f;
+    public static float ChemRateR3 = 0.05f;
+    public static float ChemRateR4 = 0.05f;
+    public static float ChemRateR5 = 0.05f;
+
+    // R1: CO2 + 4H2 -> 有机物
+    public static float ChemTempMinR1 = 5f;
+    public static float ChemTempMaxR1 = 65f;
+    public static int ChemLightMinR1 = 10;
+
+    // R2: H2S + CO2 -> 有机物
+    public static float ChemTempMinR2 = 5f;
+    public static float ChemTempMaxR2 = 70f;
+    public static int ChemLightMinR2 = 15;
+
+    // R3: 有机物 -> CO2 + 2H2
+    public static float ChemTempMinR3 = 15f;
+    public static float ChemTempMaxR3 = 90f;
+    public static int ChemLightMinR3 = 0;
+
+    // R4: 硫酸盐 + 有机物 -> H2S + CO2
+    public static float ChemTempMinR4 = 5f;
+    public static float ChemTempMaxR4 = 80f;
+    public static int ChemLightMinR4 = 0;
+
+    // R5: 2H2S -> 2H2
+    public static float ChemTempMinR5 = 10f;
+    public static float ChemTempMaxR5 = 75f;
+    public static int ChemLightMinR5 = 20;
 }
