@@ -6,6 +6,23 @@
 | --- | --- |
 | auto-upload-git.ps1 | 自动初始化 Git、配置用户、提交并推送到远端仓库的脚本。 |
 
+## Tools
+
+| 文件 | 简介 |
+| --- | --- |
+| Tools/ChemistryReactionEditor/ChemistryReactionEditor.csproj | 化学反应外部编辑器 WPF 项目文件。 |
+| Tools/ChemistryReactionEditor/MainWindow.xaml | 化学反应编辑器界面：物质表、反应列表、拖拽排序与反应详情。 |
+| Tools/ChemistryReactionEditor/MainWindow.xaml.cs | 化学反应编辑器逻辑：读写 JSON、校验、拖拽排序与保存。 |
+| Tools/ChemistryReactionEditor/Models.cs | 化学反应编辑器的数据绑定模型。 |
+| Tools/ChemistryReactionEditor/README.md | 化学反应编辑器运行和表达式说明。 |
+| Tools/ChemistryReactionEditor/run-editor.bat | Windows 下启动化学反应编辑器的脚本。 |
+
+## StreamingAssets
+
+| 文件 | 简介 |
+| --- | --- |
+| Assets/StreamingAssets/chemistry-reactions.json | 游戏运行时读取的化学物质与反应配置。 |
+
 ## Shaders
 
 | 文件 | 简介 |
@@ -38,7 +55,9 @@
 | Assets/Scripts/Core/SimulationRenderSettingsData.cs | 渲染配置的序列化容器，支持与配置同步、哈希与应用。 |
 | Assets/Scripts/Core/SimulationCore.cs | 核心模拟线程：世界初始化、行为循环、科研与温度换算。 |
 | Assets/Scripts/Core/SimulationConfig.cs | 全局模拟与渲染参数配置中心。 |
-| Assets/Scripts/Core/ChemistrySystem.cs | 环境格非生物化学反应、物质基准分布、叠加视图选择与热力图归一化。 |
+| Assets/Scripts/Core/ChemistryConfigData.cs | 化学 JSON 配置的数据结构定义。 |
+| Assets/Scripts/Core/ChemistryExpression.cs | 化学条件和动力方程的安全表达式解析与求值。 |
+| Assets/Scripts/Core/ChemistrySystem.cs | 从 JSON 加载化学物质/反应，执行环境格非生物化学反应与热力图归一化。 |
 | Assets/Scripts/Core/ResearchPlayerPanelTab.cs | 研发界面页签：显示研发点并提供温度耐受升级。 |
 | Assets/Scripts/Core/PopulationPlayerPanelTab.cs | 种群页签占位实现，预留后续扩展。 |
 | Assets/Scripts/Core/PlayerPanelTabPage.cs | 玩家面板页签基类与上下文数据结构。 |

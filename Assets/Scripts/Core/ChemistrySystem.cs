@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -20,44 +22,64 @@ public enum ChemicalPhase
     Gas = 2
 }
 
-struct ChemicalReaction
+public class ChemistrySubstanceRuntime
 {
+    public int Index;
+    public string Id;
+    public string DisplayName;
+    public ChemicalPhase Phase;
+    public Color Color;
+    public float OverlayMax;
+    public float BaselineLand;
+    public float BaselineWater;
+}
+
+class ChemicalReactionRuntime
+{
+    public string Id;
+    public string Name;
+    public bool Enabled;
     public int Priority;
-    public ChemicalSubstance[] Reactants;
+    public int[] Reactants;
+    public string[] ReactantIds;
     public float[] ReactantCoeffs;
-    public ChemicalSubstance[] Products;
+    public int[] Products;
+    public string[] ProductIds;
     public float[] ProductCoeffs;
-    public float BaseRate;
-    public float MinTempC;
-    public float MaxTempC;
-    public int MinLight;
+    public ChemistryExpression Condition;
+    public ChemistryExpression RateExpression;
 }
 
 public static class ChemistrySystem
 {
-    public static readonly ChemicalSubstance[] DefaultOrder =
-    {
-        ChemicalSubstance.Organic,
-        ChemicalSubstance.CO2,
-        ChemicalSubstance.H2,
-        ChemicalSubstance.H2S,
-        ChemicalSubstance.Sulfate
-    };
+    const string ConfigFileName = "chemistry-reactions.json";
 
-    static ChemicalReaction[] reactions;
+    static ChemistrySubstanceRuntime[] substances = new ChemistrySubstanceRuntime[0];
+    static ChemicalReactionRuntime[] reactions = new ChemicalReactionRuntime[0];
+    static Dictionary<string, int> substanceIndexById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     static bool initialized;
     static long chemicalRevision;
 
     public static int ChemicalOverlayMask { get; private set; }
+    public static int SubstanceCount => substances != null ? substances.Length : 0;
+    public static ChemistrySubstanceRuntime[] Substances => substances;
 
     public static void Init()
     {
         if (initialized)
             return;
 
-        reactions = BuildReactions();
-        Array.Sort(reactions, (a, b) => b.Priority.CompareTo(a.Priority));
+        LoadConfig();
         initialized = true;
+    }
+
+    public static void ReloadConfig()
+    {
+        initialized = false;
+        LoadConfig();
+        initialized = true;
+        SetChemicalOverlayMask(0);
+        Interlocked.Increment(ref chemicalRevision);
     }
 
     public static void ResetOverlayMask()
@@ -67,14 +89,18 @@ public static class ChemistrySystem
 
     public static void SetChemicalOverlayMask(int mask)
     {
-        ChemicalOverlayMask = mask & ((1 << (int)ChemicalSubstance.Count) - 1);
+        int maxMask = SubstanceCount >= 31 ? -1 : ((1 << SubstanceCount) - 1);
+        ChemicalOverlayMask = mask & maxMask;
         SyncOverlayViewMode();
         CellRenderer.InvalidateChemicalOverlay();
     }
 
-    public static void ToggleChemicalOverlay(ChemicalSubstance substance)
+    public static void ToggleChemicalOverlay(int substanceIndex)
     {
-        int bit = 1 << (int)substance;
+        if (substanceIndex < 0 || substanceIndex >= SubstanceCount || substanceIndex >= 31)
+            return;
+
+        int bit = 1 << substanceIndex;
         if ((ChemicalOverlayMask & bit) != 0)
             ChemicalOverlayMask &= ~bit;
         else
@@ -83,9 +109,11 @@ public static class ChemistrySystem
         CellRenderer.InvalidateChemicalOverlay();
     }
 
-    public static bool IsChemicalOverlaySelected(ChemicalSubstance substance)
+    public static bool IsChemicalOverlaySelected(int substanceIndex)
     {
-        return (ChemicalOverlayMask & (1 << (int)substance)) != 0;
+        if (substanceIndex < 0 || substanceIndex >= 31)
+            return false;
+        return (ChemicalOverlayMask & (1 << substanceIndex)) != 0;
     }
 
     public static long GetChemicalRevision()
@@ -93,55 +121,51 @@ public static class ChemistrySystem
         return Interlocked.Read(ref chemicalRevision);
     }
 
-    public static string GetSubstanceName(ChemicalSubstance substance)
+    public static int GetSubstanceIndex(string id)
     {
-        switch (substance)
-        {
-            case ChemicalSubstance.Organic: return "有机物";
-            case ChemicalSubstance.CO2: return "CO2";
-            case ChemicalSubstance.H2: return "H2";
-            case ChemicalSubstance.H2S: return "H2S";
-            case ChemicalSubstance.Sulfate: return "硫酸盐";
-            default: return substance.ToString();
-        }
+        if (string.IsNullOrEmpty(id))
+            return -1;
+        return substanceIndexById.TryGetValue(id, out int index) ? index : -1;
     }
 
-    public static ChemicalPhase GetSubstancePhase(ChemicalSubstance substance)
+    public static string GetSubstanceId(int substanceIndex)
     {
-        switch (substance)
-        {
-            case ChemicalSubstance.Organic:
-            case ChemicalSubstance.Sulfate:
-                return ChemicalPhase.Solid;
-            case ChemicalSubstance.CO2:
-            case ChemicalSubstance.H2:
-            case ChemicalSubstance.H2S:
-                return ChemicalPhase.Gas;
-            default:
-                return ChemicalPhase.Solid;
-        }
+        ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
+        return substance != null ? substance.Id : string.Empty;
     }
 
-    public static Color GetSubstanceColor(ChemicalSubstance substance)
+    public static string GetSubstanceName(int substanceIndex)
     {
-        switch (substance)
-        {
-            case ChemicalSubstance.Organic: return SimulationConfig.ChemColorOrganic;
-            case ChemicalSubstance.CO2: return SimulationConfig.ChemColorCO2;
-            case ChemicalSubstance.H2: return SimulationConfig.ChemColorH2;
-            case ChemicalSubstance.H2S: return SimulationConfig.ChemColorH2S;
-            case ChemicalSubstance.Sulfate: return SimulationConfig.ChemColorSulfate;
-            default: return Color.white;
-        }
+        ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
+        return substance != null ? substance.DisplayName : "未知物质";
     }
 
-    public static float NormalizeOverlayAmount(ChemicalSubstance substance, float amount)
+    public static ChemicalPhase GetSubstancePhase(int substanceIndex)
     {
-        float max = GetOverlayMax(substance);
-        if (max <= 0f)
+        ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
+        return substance != null ? substance.Phase : ChemicalPhase.Solid;
+    }
+
+    public static Color GetSubstanceColor(int substanceIndex)
+    {
+        ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
+        return substance != null ? substance.Color : Color.white;
+    }
+
+    public static float NormalizeOverlayAmount(int substanceIndex, float amount)
+    {
+        ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
+        if (substance == null || substance.OverlayMax <= 0f)
             return 0f;
-        return Mathf.Clamp01(amount / max);
+        return Mathf.Clamp01(amount / substance.OverlayMax);
     }
+
+    public static string GetSubstanceName(ChemicalSubstance substance) => GetSubstanceName((int)substance);
+    public static ChemicalPhase GetSubstancePhase(ChemicalSubstance substance) => GetSubstancePhase((int)substance);
+    public static Color GetSubstanceColor(ChemicalSubstance substance) => GetSubstanceColor((int)substance);
+    public static float NormalizeOverlayAmount(ChemicalSubstance substance, float amount) => NormalizeOverlayAmount((int)substance, amount);
+    public static void ToggleChemicalOverlay(ChemicalSubstance substance) => ToggleChemicalOverlay((int)substance);
+    public static bool IsChemicalOverlaySelected(ChemicalSubstance substance) => IsChemicalOverlaySelected((int)substance);
 
     public static void SeedEnvironmentBaselines(Envir[,] envirData)
     {
@@ -165,17 +189,13 @@ public static class ChemistrySystem
         if (env == null)
             return;
 
+        env.EnsureChemicalCapacity(SubstanceCount);
         bool isWater = env.Topography == 0 || env.Topography == 3 || env.Topography == 4;
-        env.SetChemicalAmount(ChemicalSubstance.Organic,
-            isWater ? SimulationConfig.ChemBaselineOrganicWater : SimulationConfig.ChemBaselineOrganicLand);
-        env.SetChemicalAmount(ChemicalSubstance.CO2,
-            isWater ? SimulationConfig.ChemBaselineCO2Water : SimulationConfig.ChemBaselineCO2Land);
-        env.SetChemicalAmount(ChemicalSubstance.H2,
-            isWater ? SimulationConfig.ChemBaselineH2Water : SimulationConfig.ChemBaselineH2Land);
-        env.SetChemicalAmount(ChemicalSubstance.H2S,
-            isWater ? SimulationConfig.ChemBaselineH2SWater : SimulationConfig.ChemBaselineH2SLand);
-        env.SetChemicalAmount(ChemicalSubstance.Sulfate,
-            isWater ? SimulationConfig.ChemBaselineSulfateWater : SimulationConfig.ChemBaselineSulfateLand);
+        for (int i = 0; i < SubstanceCount; i++)
+        {
+            ChemistrySubstanceRuntime substance = substances[i];
+            env.SetChemicalAmount(i, isWater ? substance.BaselineWater : substance.BaselineLand);
+        }
     }
 
     public static void ApplyEnvironmentReactions(Envir[,] envirData)
@@ -191,6 +211,7 @@ public static class ChemistrySystem
                 Envir env = envirData[x, y];
                 if (env == null)
                     continue;
+                env.EnsureChemicalCapacity(SubstanceCount);
                 ApplyReactionsToCell(env);
             }
         });
@@ -204,21 +225,27 @@ public static class ChemistrySystem
 
         for (int i = 0; i < reactions.Length; i++)
         {
-            ref ChemicalReaction reaction = ref reactions[i];
-            if (tempC < reaction.MinTempC || tempC > reaction.MaxTempC)
-                continue;
-            if (light < reaction.MinLight)
+            ChemicalReactionRuntime reaction = reactions[i];
+            if (!reaction.Enabled)
                 continue;
 
-            float delta = EvaluateKinetics(env, ref reaction);
+            float limiting = GetLimitingAmount(env, reaction);
+            if (limiting <= 0f)
+                continue;
+
+            ChemistryExpressionContext context = BuildExpressionContext(env, reaction, tempC, light, limiting);
+            if (reaction.Condition != null && reaction.Condition.Evaluate(context) == 0f)
+                continue;
+
+            float delta = reaction.RateExpression != null ? reaction.RateExpression.Evaluate(context) : 0f;
             if (delta <= 0f)
                 continue;
 
-            ApplyReactionDelta(env, ref reaction, delta);
+            ApplyReactionDelta(env, reaction, delta);
         }
     }
 
-    static float EvaluateKinetics(Envir env, ref ChemicalReaction reaction)
+    static float GetLimitingAmount(Envir env, ChemicalReactionRuntime reaction)
     {
         float limiting = float.MaxValue;
         for (int i = 0; i < reaction.Reactants.Length; i++)
@@ -232,14 +259,39 @@ public static class ChemistrySystem
                 limiting = available;
         }
 
-        if (limiting <= 0f || limiting == float.MaxValue)
+        if (limiting == float.MaxValue)
             return 0f;
-
-        float power = SimulationConfig.ChemKineticsPower;
-        return reaction.BaseRate * Mathf.Pow(limiting, power);
+        return limiting;
     }
 
-    static void ApplyReactionDelta(Envir env, ref ChemicalReaction reaction, float delta)
+    static ChemistryExpressionContext BuildExpressionContext(Envir env, ChemicalReactionRuntime reaction, float tempC, int light, float limiting)
+    {
+        return new ChemistryExpressionContext
+        {
+            tempC = tempC,
+            light = light,
+            height = env.Height,
+            topography = env.Topography,
+            limiting = limiting,
+            AmountOf = id => env.GetChemicalAmount(GetSubstanceIndex(id)),
+            ReactantCoeffOf = id => GetCoeff(id, reaction.ReactantIds, reaction.ReactantCoeffs),
+            ProductCoeffOf = id => GetCoeff(id, reaction.ProductIds, reaction.ProductCoeffs)
+        };
+    }
+
+    static float GetCoeff(string id, string[] ids, float[] coeffs)
+    {
+        if (ids == null || coeffs == null)
+            return 0f;
+        for (int i = 0; i < ids.Length && i < coeffs.Length; i++)
+        {
+            if (string.Equals(ids[i], id, StringComparison.OrdinalIgnoreCase))
+                return coeffs[i];
+        }
+        return 0f;
+    }
+
+    static void ApplyReactionDelta(Envir env, ChemicalReactionRuntime reaction, float delta)
     {
         for (int i = 0; i < reaction.Reactants.Length; i++)
             env.AddChemicalAmount(reaction.Reactants[i], -reaction.ReactantCoeffs[i] * delta);
@@ -248,89 +300,239 @@ public static class ChemistrySystem
             env.AddChemicalAmount(reaction.Products[i], reaction.ProductCoeffs[i] * delta);
     }
 
-    static ChemicalReaction[] BuildReactions()
+    static void LoadConfig()
     {
-        return new[]
+        string path = GetConfigPath();
+        ChemistryConfigFile config = null;
+        if (File.Exists(path))
         {
-            // R1: CO2 + 4H2 -> 有机物（原始氢能合成，需光）
-            new ChemicalReaction
+            try
             {
-                Priority = 5,
-                Reactants = new[] { ChemicalSubstance.CO2, ChemicalSubstance.H2 },
-                ReactantCoeffs = new[] { 1f, 4f },
-                Products = new[] { ChemicalSubstance.Organic },
-                ProductCoeffs = new[] { 1f },
-                BaseRate = SimulationConfig.ChemRateR1,
-                MinTempC = SimulationConfig.ChemTempMinR1,
-                MaxTempC = SimulationConfig.ChemTempMaxR1,
-                MinLight = SimulationConfig.ChemLightMinR1
+                config = JsonUtility.FromJson<ChemistryConfigFile>(File.ReadAllText(path));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("化学配置读取失败，使用内置默认配置: " + ex.Message);
+            }
+        }
+
+        if (!TryApplyConfig(config, out string error))
+        {
+            Debug.LogError("化学配置无效，使用内置默认配置: " + error);
+            TryApplyConfig(BuildDefaultConfig(), out _);
+        }
+    }
+
+    static bool TryApplyConfig(ChemistryConfigFile config, out string error)
+    {
+        error = string.Empty;
+        if (config == null)
+        {
+            error = "配置为空";
+            return false;
+        }
+        if (config.substances == null || config.substances.Length == 0)
+        {
+            error = "至少需要 1 个物质";
+            return false;
+        }
+
+        Dictionary<string, int> nextIndexById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        List<ChemistrySubstanceRuntime> nextSubstances = new List<ChemistrySubstanceRuntime>();
+        for (int i = 0; i < config.substances.Length; i++)
+        {
+            ChemistrySubstanceConfig item = config.substances[i];
+            if (item == null || string.IsNullOrWhiteSpace(item.id))
+            {
+                error = "物质 id 不能为空";
+                return false;
+            }
+            if (nextIndexById.ContainsKey(item.id))
+            {
+                error = "物质 id 重复: " + item.id;
+                return false;
+            }
+
+            ChemistrySubstanceRuntime substance = new ChemistrySubstanceRuntime
+            {
+                Index = i,
+                Id = item.id,
+                DisplayName = string.IsNullOrWhiteSpace(item.displayName) ? item.id : item.displayName,
+                Phase = ParsePhase(item.phase),
+                Color = ParseColor(item.color, Color.white),
+                OverlayMax = item.overlayMax > 0f ? item.overlayMax : 1f,
+                BaselineLand = Mathf.Max(0f, item.baselineLand),
+                BaselineWater = Mathf.Max(0f, item.baselineWater)
+            };
+            nextIndexById[item.id] = i;
+            nextSubstances.Add(substance);
+        }
+
+        List<ChemicalReactionRuntime> nextReactions = new List<ChemicalReactionRuntime>();
+        ChemistryReactionConfig[] configReactions = config.reactions ?? new ChemistryReactionConfig[0];
+        for (int i = 0; i < configReactions.Length; i++)
+        {
+            ChemistryReactionConfig source = configReactions[i];
+            if (source == null)
+                continue;
+
+            if (!TryBuildReaction(source, nextIndexById, out ChemicalReactionRuntime reaction, out error))
+                return false;
+            reaction.Priority = source.priority != 0 ? source.priority : configReactions.Length - i;
+            nextReactions.Add(reaction);
+        }
+
+        nextReactions.Sort((a, b) => b.Priority.CompareTo(a.Priority));
+        substances = nextSubstances.ToArray();
+        reactions = nextReactions.ToArray();
+        substanceIndexById = nextIndexById;
+        return true;
+    }
+
+    static bool TryBuildReaction(ChemistryReactionConfig source, Dictionary<string, int> indexById, out ChemicalReactionRuntime reaction, out string error)
+    {
+        reaction = null;
+        error = string.Empty;
+
+        if (source.reactants == null || source.reactants.Length == 0 || source.products == null || source.products.Length == 0)
+        {
+            error = "反应必须同时包含反应物和生成物: " + source.id;
+            return false;
+        }
+
+        if (!TryBuildTerms(source.reactants, indexById, out int[] reactants, out string[] reactantIds, out float[] reactantCoeffs, out error))
+            return false;
+        if (!TryBuildTerms(source.products, indexById, out int[] products, out string[] productIds, out float[] productCoeffs, out error))
+            return false;
+
+        try
+        {
+            reaction = new ChemicalReactionRuntime
+            {
+                Id = string.IsNullOrWhiteSpace(source.id) ? source.name : source.id,
+                Name = string.IsNullOrWhiteSpace(source.name) ? source.id : source.name,
+                Enabled = source.enabled,
+                Reactants = reactants,
+                ReactantIds = reactantIds,
+                ReactantCoeffs = reactantCoeffs,
+                Products = products,
+                ProductIds = productIds,
+                ProductCoeffs = productCoeffs,
+                Condition = ChemistryExpression.Compile(source.condition),
+                RateExpression = ChemistryExpression.Compile(source.rateExpression)
+            };
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = "反应表达式错误 " + source.id + ": " + ex.Message;
+            return false;
+        }
+    }
+
+    static bool TryBuildTerms(ChemistryReactionTermConfig[] terms, Dictionary<string, int> indexById, out int[] indices, out string[] ids, out float[] coeffs, out string error)
+    {
+        error = string.Empty;
+        indices = new int[terms.Length];
+        ids = new string[terms.Length];
+        coeffs = new float[terms.Length];
+
+        for (int i = 0; i < terms.Length; i++)
+        {
+            ChemistryReactionTermConfig term = terms[i];
+            if (term == null || string.IsNullOrWhiteSpace(term.substanceId))
+            {
+                error = "反应项物质 id 不能为空";
+                return false;
+            }
+            if (!indexById.TryGetValue(term.substanceId, out int index))
+            {
+                error = "反应引用了不存在的物质: " + term.substanceId;
+                return false;
+            }
+            if (term.coeff <= 0f)
+            {
+                error = "反应系数必须大于 0: " + term.substanceId;
+                return false;
+            }
+
+            indices[i] = index;
+            ids[i] = term.substanceId;
+            coeffs[i] = term.coeff;
+        }
+        return true;
+    }
+
+    static ChemistrySubstanceRuntime GetSubstance(int index)
+    {
+        if (substances == null || index < 0 || index >= substances.Length)
+            return null;
+        return substances[index];
+    }
+
+    static ChemicalPhase ParsePhase(string phase)
+    {
+        if (string.Equals(phase, "Liquid", StringComparison.OrdinalIgnoreCase)) return ChemicalPhase.Liquid;
+        if (string.Equals(phase, "Gas", StringComparison.OrdinalIgnoreCase)) return ChemicalPhase.Gas;
+        return ChemicalPhase.Solid;
+    }
+
+    static Color ParseColor(string hex, Color fallback)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return fallback;
+        if (!hex.StartsWith("#"))
+            hex = "#" + hex;
+        return ColorUtility.TryParseHtmlString(hex, out Color color) ? color : fallback;
+    }
+
+    static string GetConfigPath()
+    {
+        return Path.Combine(Application.streamingAssetsPath, ConfigFileName);
+    }
+
+    static ChemistryConfigFile BuildDefaultConfig()
+    {
+        return new ChemistryConfigFile
+        {
+            version = 1,
+            substances = new[]
+            {
+                new ChemistrySubstanceConfig { id = "organic", displayName = "有机物", phase = "Solid", color = "#5A8C38", overlayMax = 8f, baselineLand = SimulationConfig.ChemBaselineOrganicLand, baselineWater = SimulationConfig.ChemBaselineOrganicWater },
+                new ChemistrySubstanceConfig { id = "co2", displayName = "CO2", phase = "Gas", color = "#8C8C8C", overlayMax = 6f, baselineLand = SimulationConfig.ChemBaselineCO2Land, baselineWater = SimulationConfig.ChemBaselineCO2Water },
+                new ChemistrySubstanceConfig { id = "h2", displayName = "H2", phase = "Gas", color = "#33BFDD", overlayMax = 4f, baselineLand = SimulationConfig.ChemBaselineH2Land, baselineWater = SimulationConfig.ChemBaselineH2Water },
+                new ChemistrySubstanceConfig { id = "h2s", displayName = "H2S", phase = "Gas", color = "#E6CC26", overlayMax = 4f, baselineLand = SimulationConfig.ChemBaselineH2SLand, baselineWater = SimulationConfig.ChemBaselineH2SWater },
+                new ChemistrySubstanceConfig { id = "sulfate", displayName = "硫酸盐", phase = "Solid", color = "#C0C7F2", overlayMax = 5f, baselineLand = SimulationConfig.ChemBaselineSulfateLand, baselineWater = SimulationConfig.ChemBaselineSulfateWater }
             },
-            // R2: H2S + CO2 -> 有机物（硫化耦合，需较强光）
-            new ChemicalReaction
+            reactions = new[]
             {
-                Priority = 4,
-                Reactants = new[] { ChemicalSubstance.H2S, ChemicalSubstance.CO2 },
-                ReactantCoeffs = new[] { 1f, 1f },
-                Products = new[] { ChemicalSubstance.Organic },
-                ProductCoeffs = new[] { 1f },
-                BaseRate = SimulationConfig.ChemRateR2,
-                MinTempC = SimulationConfig.ChemTempMinR2,
-                MaxTempC = SimulationConfig.ChemTempMaxR2,
-                MinLight = SimulationConfig.ChemLightMinR2
-            },
-            // R3: 有机物 -> CO2 + 2H2（厌氧分解，无光）
-            new ChemicalReaction
-            {
-                Priority = 3,
-                Reactants = new[] { ChemicalSubstance.Organic },
-                ReactantCoeffs = new[] { 1f },
-                Products = new[] { ChemicalSubstance.CO2, ChemicalSubstance.H2 },
-                ProductCoeffs = new[] { 1f, 2f },
-                BaseRate = SimulationConfig.ChemRateR3,
-                MinTempC = SimulationConfig.ChemTempMinR3,
-                MaxTempC = SimulationConfig.ChemTempMaxR3,
-                MinLight = SimulationConfig.ChemLightMinR3
-            },
-            // R4: 硫酸盐 + 有机物 -> H2S + CO2（硫酸盐还原）
-            new ChemicalReaction
-            {
-                Priority = 2,
-                Reactants = new[] { ChemicalSubstance.Sulfate, ChemicalSubstance.Organic },
-                ReactantCoeffs = new[] { 1f, 1f },
-                Products = new[] { ChemicalSubstance.H2S, ChemicalSubstance.CO2 },
-                ProductCoeffs = new[] { 1f, 1f },
-                BaseRate = SimulationConfig.ChemRateR4,
-                MinTempC = SimulationConfig.ChemTempMinR4,
-                MaxTempC = SimulationConfig.ChemTempMaxR4,
-                MinLight = SimulationConfig.ChemLightMinR4
-            },
-            // R5: 2H2S -> 2H2（光致裂解，固硫物为隐式产物）
-            new ChemicalReaction
-            {
-                Priority = 1,
-                Reactants = new[] { ChemicalSubstance.H2S },
-                ReactantCoeffs = new[] { 2f },
-                Products = new[] { ChemicalSubstance.H2 },
-                ProductCoeffs = new[] { 2f },
-                BaseRate = SimulationConfig.ChemRateR5,
-                MinTempC = SimulationConfig.ChemTempMinR5,
-                MaxTempC = SimulationConfig.ChemTempMaxR5,
-                MinLight = SimulationConfig.ChemLightMinR5
+                Reaction("co2-h2-organic", "原始氢能合成", 5, new[] { Term("co2", 1f), Term("h2", 4f) }, new[] { Term("organic", 1f) }, "tempC >= 5 && tempC <= 65 && light >= 10", "0.05 * pow(limiting, 0.75)"),
+                Reaction("h2s-co2-organic", "硫化耦合", 4, new[] { Term("h2s", 1f), Term("co2", 1f) }, new[] { Term("organic", 1f) }, "tempC >= 5 && tempC <= 70 && light >= 15", "0.05 * pow(limiting, 0.75)"),
+                Reaction("organic-decompose", "有机物厌氧分解", 3, new[] { Term("organic", 1f) }, new[] { Term("co2", 1f), Term("h2", 2f) }, "tempC >= 15 && tempC <= 90", "0.05 * pow(limiting, 0.75)"),
+                Reaction("sulfate-organic-h2s", "硫酸盐还原", 2, new[] { Term("sulfate", 1f), Term("organic", 1f) }, new[] { Term("h2s", 1f), Term("co2", 1f) }, "tempC >= 5 && tempC <= 80", "0.05 * pow(limiting, 0.75)"),
+                Reaction("h2s-photolysis", "H2S 光致裂解", 1, new[] { Term("h2s", 2f) }, new[] { Term("h2", 2f) }, "tempC >= 10 && tempC <= 75 && light >= 20", "0.05 * pow(limiting, 0.75)")
             }
         };
     }
 
-    static float GetOverlayMax(ChemicalSubstance substance)
+    static ChemistryReactionConfig Reaction(string id, string name, int priority, ChemistryReactionTermConfig[] reactants, ChemistryReactionTermConfig[] products, string condition, string rateExpression)
     {
-        switch (substance)
+        return new ChemistryReactionConfig
         {
-            case ChemicalSubstance.Organic: return SimulationConfig.ChemOverlayMaxOrganic;
-            case ChemicalSubstance.CO2: return SimulationConfig.ChemOverlayMaxCO2;
-            case ChemicalSubstance.H2: return SimulationConfig.ChemOverlayMaxH2;
-            case ChemicalSubstance.H2S: return SimulationConfig.ChemOverlayMaxH2S;
-            case ChemicalSubstance.Sulfate: return SimulationConfig.ChemOverlayMaxSulfate;
-            default: return 1f;
-        }
+            id = id,
+            name = name,
+            enabled = true,
+            priority = priority,
+            reactants = reactants,
+            products = products,
+            condition = condition,
+            rateExpression = rateExpression
+        };
+    }
+
+    static ChemistryReactionTermConfig Term(string id, float coeff)
+    {
+        return new ChemistryReactionTermConfig { substanceId = id, coeff = coeff };
     }
 
     static void SyncOverlayViewMode()

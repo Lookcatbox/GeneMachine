@@ -698,19 +698,21 @@ public class CellRenderer : MonoBehaviour
                 Color rgb = Color.black;
                 float weightSum = 0f;
                 float maxIntensity = 0f;
-                ChemicalSubstance[] substances = ChemistrySystem.DefaultOrder;
+                ChemistrySubstanceRuntime[] substances = ChemistrySystem.Substances;
                 for (int i = 0; i < substances.Length; i++)
                 {
-                    ChemicalSubstance substance = substances[i];
-                    int bit = 1 << (int)substance;
+                    ChemistrySubstanceRuntime substance = substances[i];
+                    if (substance.Index >= 31)
+                        continue;
+                    int bit = 1 << substance.Index;
                     if ((mask & bit) == 0)
                         continue;
 
-                    float norm = ChemistrySystem.NormalizeOverlayAmount(substance, env.GetChemicalAmount(substance));
+                    float norm = ChemistrySystem.NormalizeOverlayAmount(substance.Index, env.GetChemicalAmount(substance.Index));
                     if (norm <= 0f)
                         continue;
 
-                    Color substanceColor = ChemistrySystem.GetSubstanceColor(substance);
+                    Color substanceColor = substance.Color;
                     rgb += substanceColor * norm;
                     weightSum += norm;
                     if (norm > maxIntensity)

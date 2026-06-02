@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "substances": [
+    {
+      "id": "organic",
+      "displayName": "有机物",
+      "phase": "Solid",
+      "color": "#5A8C38",
+      "overlayMax": 8.0,
+      "baselineLand": 2.5,
+      "baselineWater": 0.4
+    },
+    {
+      "id": "co2",
+      "displayName": "CO2",
+      "phase": "Gas",
+      "color": "#8C8C8C",
+      "overlayMax": 6.0,
+      "baselineLand": 1.2,
+      "baselineWater": 2.0
+    },
+    {
+      "id": "h2",
+      "displayName": "H2",
+      "phase": "Gas",
+      "color": "#33BFDD",
+      "overlayMax": 4.0,
+      "baselineLand": 0.3,
+      "baselineWater": 0.8
+    },
+    {
+      "id": "h2s",
+      "displayName": "H2S",
+      "phase": "Gas",
+      "color": "#E6CC26",
+      "overlayMax": 4.0,
+      "baselineLand": 0.2,
+      "baselineWater": 0.6
+    },
+    {
+      "id": "sulfate",
+      "displayName": "硫酸盐",
+      "phase": "Solid",
+      "color": "#C0C7F2",
+      "overlayMax": 5.0,
+      "baselineLand": 0.5,
+      "baselineWater": 1.5
+    }
+  ],
+  "reactions": [
+    {
+      "id": "co2-h2-organic",
+      "name": "原始氢能合成",
+      "enabled": true,
+      "priority": 5,
+      "reactants": [
+        { "substanceId": "co2", "coeff": 1.0 },
+        { "substanceId": "h2", "coeff": 4.0 }
+      ],
+      "products": [
+        { "substanceId": "organic", "coeff": 1.0 }
+      ],
+      "condition": "tempC >= 5 && tempC <= 65 && light >= 10",
+      "rateExpression": "0.05 * pow(limiting, 0.75)"
+    },
+    {
+      "id": "h2s-co2-organic",
+      "name": "硫化耦合",
+      "enabled": true,
+      "priority": 4,
+      "reactants": [
+        { "substanceId": "h2s", "coeff": 1.0 },
+        { "substanceId": "co2", "coeff": 1.0 }
+      ],
+      "products": [
+        { "substanceId": "organic", "coeff": 1.0 }
+      ],
+      "condition": "tempC >= 5 && tempC <= 70 && light >= 15",
+      "rateExpression": "0.05 * pow(limiting, 0.75)"
+    },
+    {
+      "id": "organic-decompose",
+      "name": "有机物厌氧分解",
+      "enabled": true,
+      "priority": 3,
+      "reactants": [
+        { "substanceId": "organic", "coeff": 1.0 }
+      ],
+      "products": [
+        { "substanceId": "co2", "coeff": 1.0 },
+        { "substanceId": "h2", "coeff": 2.0 }
+      ],
+      "condition": "tempC >= 15 && tempC <= 90",
+      "rateExpression": "0.05 * pow(limiting, 0.75)"
+    },
+    {
+      "id": "sulfate-organic-h2s",
+      "name": "硫酸盐还原",
+      "enabled": true,
+      "priority": 2,
+      "reactants": [
+        { "substanceId": "sulfate", "coeff": 1.0 },
+        { "substanceId": "organic", "coeff": 1.0 }
+      ],
+      "products": [
+        { "substanceId": "h2s", "coeff": 1.0 },
+        { "substanceId": "co2", "coeff": 1.0 }
+      ],
+      "condition": "tempC >= 5 && tempC <= 80",
+      "rateExpression": "0.05 * pow(limiting, 0.75)"
+    },
+    {
+      "id": "h2s-photolysis",
+      "name": "H2S 光致裂解",
+      "enabled": true,
+      "priority": 1,
+      "reactants": [
+        { "substanceId": "h2s", "coeff": 2.0 }
+      ],
+      "products": [
+        { "substanceId": "h2", "coeff": 2.0 }
+      ],
+      "condition": "tempC >= 10 && tempC <= 75 && light >= 20",
+      "rateExpression": "0.05 * pow(limiting, 0.75)"
+    }
+  ]
+}

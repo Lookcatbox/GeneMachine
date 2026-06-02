@@ -1,5 +1,43 @@
 # 修改日志
 
+## 2026-06-02 外部化学反应编辑器
+
+### 新增文件
+
+#### Assets/StreamingAssets/chemistry-reactions.json
+- 新增化学物质与反应 JSON 配置，默认迁移当前 5 种物质与 5 条反应。
+
+#### Assets/Scripts/Core/ChemistryConfigData.cs
+- 新增化学配置 JSON 数据结构。
+
+#### Assets/Scripts/Core/ChemistryExpression.cs
+- 新增安全表达式解析器，支持条件与动力方程中的白名单变量、函数和运算符。
+
+#### Tools/ChemistryReactionEditor
+- 新增 WPF 外部编辑器，可编辑物质、反应、反应项、条件表达式、动力方程表达式，并通过拖拽反应列表决定优先级。
+- 新增运行说明与 `run-editor.bat` 启动脚本。
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 从硬编码反应改为读取 `Assets/StreamingAssets/chemistry-reactions.json`；配置损坏时回退内置默认配置。
+- 物质从固定 enum 改为运行时索引，支持设计师新增/删除物质。
+
+#### Assets/Scripts/Entities/Envir.cs
+- 化学物质量数组改为按运行时物质数量自动扩容。
+
+#### Assets/Scripts/Core/SaveSystem.cs
+- 存档版本升至 3，保存化学物质 id 列表并在读档时按 id 对齐当前配置。
+
+#### Assets/Scripts/Core/EnvironmentPlayerPanelTab.cs
+- 环境页签物质列表改为读取运行时物质定义。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 化学热力图改为按运行时物质定义取颜色和归一化上限。
+
+#### CodeMenu.md
+- 登记化学编辑器、JSON 配置和新增运行时文件。
+
 ## 2026-06-02 修复化学视图不随回合刷新
 
 ### 修改文件

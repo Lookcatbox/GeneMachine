@@ -15,7 +15,7 @@ public class Envir
 
     public Cell[] CellList;       // 该格中的细胞列表（下标从1开始）
 
-    public float[] ChemAmounts;   // 各化学物质存量（单位），下标对应 ChemicalSubstance
+    public float[] ChemAmounts;   // 各化学物质存量（单位），下标对应 ChemistrySystem 运行时物质索引
 
     public Envir() : this(SimulationConfig.CellMaxNum)
     {
@@ -28,32 +28,57 @@ public class Envir
         CellNum = 0;
         Temp = SimulationConfig.DefaultTemp;
         Light = SimulationConfig.DefaultLight;
-        ChemAmounts = new float[(int)ChemicalSubstance.Count];
+        ChemAmounts = new float[Math.Max(0, ChemistrySystem.SubstanceCount)];
+    }
+
+    public void EnsureChemicalCapacity(int count)
+    {
+        if (count < 0)
+            count = 0;
+        if (ChemAmounts == null)
+        {
+            ChemAmounts = new float[count];
+            return;
+        }
+        if (ChemAmounts.Length >= count)
+            return;
+
+        Array.Resize(ref ChemAmounts, count);
+    }
+
+    public float GetChemicalAmount(int substanceIndex)
+    {
+        if (ChemAmounts == null || substanceIndex < 0 || substanceIndex >= ChemAmounts.Length)
+            return 0f;
+        return ChemAmounts[substanceIndex];
     }
 
     public float GetChemicalAmount(ChemicalSubstance substance)
     {
-        if (ChemAmounts == null)
-            return 0f;
-        int index = (int)substance;
-        if (index < 0 || index >= ChemAmounts.Length)
-            return 0f;
-        return ChemAmounts[index];
+        return GetChemicalAmount((int)substance);
+    }
+
+    public void SetChemicalAmount(int substanceIndex, float amount)
+    {
+        EnsureChemicalCapacity(substanceIndex + 1);
+        if (substanceIndex < 0 || substanceIndex >= ChemAmounts.Length)
+            return;
+        ChemAmounts[substanceIndex] = amount < 0f ? 0f : amount;
     }
 
     public void SetChemicalAmount(ChemicalSubstance substance, float amount)
     {
-        if (ChemAmounts == null)
-            ChemAmounts = new float[(int)ChemicalSubstance.Count];
-        int index = (int)substance;
-        if (index < 0 || index >= ChemAmounts.Length)
-            return;
-        ChemAmounts[index] = amount < 0f ? 0f : amount;
+        SetChemicalAmount((int)substance, amount);
+    }
+
+    public void AddChemicalAmount(int substanceIndex, float delta)
+    {
+        SetChemicalAmount(substanceIndex, GetChemicalAmount(substanceIndex) + delta);
     }
 
     public void AddChemicalAmount(ChemicalSubstance substance, float delta)
     {
-        SetChemicalAmount(substance, GetChemicalAmount(substance) + delta);
+        AddChemicalAmount((int)substance, delta);
     }
 
     /// <summary>

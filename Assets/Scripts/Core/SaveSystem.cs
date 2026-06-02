@@ -33,7 +33,7 @@ public struct ViewSaveData
 
 public static class SaveSystem
 {
-    private const int SaveVersion = 2;
+    private const int SaveVersion = 3;
     private const int LegacySaveVersion = 1;
     private static int pendingLoadSlot = -1;
 
@@ -203,7 +203,7 @@ public static class SaveSystem
             using (BinaryReader reader = new BinaryReader(stream))
             {
                 int version = reader.ReadInt32();
-                if (version != SaveVersion && version != LegacySaveVersion)
+                if (version < LegacySaveVersion || version > SaveVersion)
                     return false;
 
                 reader.ReadInt32();
@@ -266,6 +266,7 @@ public static class SaveSystem
         ViewSaveData viewData = manager != null ? manager.CaptureViewState() : new ViewSaveData();
         WriteViewData(writer, viewData);
         WriteDeviceState(writer, DeviceSystem.CaptureSaveState());
+        WriteChemicalSaveHeader(writer);
 
         for (int y = 1; y <= size; y++)
         {
@@ -277,8 +278,8 @@ public static class SaveSystem
                 writer.Write(env.Temp);
                 writer.Write(env.Light);
                 writer.Write(env.MaxCellNum);
-                for (int s = 0; s < (int)ChemicalSubstance.Count; s++)
-                    writer.Write(env.GetChemicalAmount((ChemicalSubstance)s));
+                for (int s = 0; s < ChemistrySystem.SubstanceCount; s++)
+                    writer.Write(env.GetChemicalAmount(s));
             }
         }
 
@@ -300,7 +301,7 @@ public static class SaveSystem
     private static bool ReadSaveData(BinaryReader reader, MainManager manager)
     {
         int version = reader.ReadInt32();
-        if (version != SaveVersion && version != LegacySaveVersion)
+        if (version < LegacySaveVersion || version > SaveVersion)
             return false;
 
         ChemistrySystem.Init();
@@ -322,6 +323,7 @@ public static class SaveSystem
 
         ViewSaveData viewData = ReadViewData(reader, version);
         DeviceSystemSaveData deviceState = ReadDeviceState(reader);
+        int[] savedChemicalIndexMap = version >= 3 ? ReadChemicalSaveHeader(reader) : null;
 
         Envir[,] envirData = new Envir[size + 2, size + 2];
         for (int y = 1; y <= size; y++)
@@ -340,12 +342,23 @@ public static class SaveSystem
                 env.Temp = temp;
                 env.Light = light;
 
-                if (version >= SaveVersion)
+                if (version >= 3)
+                {
+                    env.EnsureChemicalCapacity(ChemistrySystem.SubstanceCount);
+                    for (int s = 0; s < savedChemicalIndexMap.Length; s++)
+                    {
+                        float amount = reader.ReadSingle();
+                        int currentIndex = savedChemicalIndexMap[s];
+                        if (currentIndex >= 0)
+                            env.SetChemicalAmount(currentIndex, amount);
+                    }
+                }
+                else if (version >= 2)
                 {
                     for (int s = 0; s < (int)ChemicalSubstance.Count; s++)
                     {
                         float amount = reader.ReadSingle();
-                        env.SetChemicalAmount((ChemicalSubstance)s, amount);
+                        env.SetChemicalAmount(s, amount);
                     }
                 }
                 else
@@ -430,7 +443,7 @@ public static class SaveSystem
         data.PlayerPanelExpanded = reader.ReadBoolean();
         data.ActivePlayerPanelTabIndex = reader.ReadInt32();
         data.SimulationSpeed = reader.ReadInt32();
-        if (saveVersion >= SaveVersion)
+        if (saveVersion >= 2)
             data.ChemicalOverlayMask = reader.ReadInt32();
         else
             data.ChemicalOverlayMask = 0;
@@ -440,6 +453,28 @@ public static class SaveSystem
     private static ViewSaveData ReadViewData(BinaryReader reader)
     {
         return ReadViewData(reader, SaveVersion);
+    }
+
+    private static void WriteChemicalSaveHeader(BinaryWriter writer)
+    {
+        int count = ChemistrySystem.SubstanceCount;
+        writer.Write(count);
+        for (int i = 0; i < count; i++)
+            writer.Write(ChemistrySystem.GetSubstanceId(i));
+    }
+
+    private static int[] ReadChemicalSaveHeader(BinaryReader reader)
+    {
+        int count = reader.ReadInt32();
+        if (count < 0)
+            count = 0;
+        int[] map = new int[count];
+        for (int i = 0; i < count; i++)
+        {
+            string id = reader.ReadString();
+            map[i] = ChemistrySystem.GetSubstanceIndex(id);
+        }
+        return map;
     }
 
     private static void WriteDeviceState(BinaryWriter writer, DeviceSystemSaveData data)

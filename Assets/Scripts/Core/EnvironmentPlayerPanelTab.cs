@@ -98,32 +98,32 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
         float rowSpacing = 4f;
         float y = headerRect.yMax + 6f;
         float rowWidth = rect.width - padding * 2f;
-        ChemicalSubstance[] substances = ChemistrySystem.DefaultOrder;
+        ChemistrySubstanceRuntime[] substances = ChemistrySystem.Substances;
 
         for (int i = 0; i < substances.Length; i++)
         {
             if (y + rowHeight > rect.yMax - padding)
                 break;
 
-            ChemicalSubstance substance = substances[i];
-            bool selected = ChemistrySystem.IsChemicalOverlaySelected(substance);
+            ChemistrySubstanceRuntime substance = substances[i];
+            bool selected = ChemistrySystem.IsChemicalOverlaySelected(substance.Index);
             Rect rowRect = new Rect(rect.x + padding, y, rowWidth, rowHeight);
 
             GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
             if (GUI.Button(rowRect, ""))
-                ChemistrySystem.ToggleChemicalOverlay(substance);
+                ChemistrySystem.ToggleChemicalOverlay(substance.Index);
             GUI.backgroundColor = Color.white;
 
-            Color substanceColor = ChemistrySystem.GetSubstanceColor(substance);
+            Color substanceColor = substance.Color;
             Rect swatchRect = new Rect(rowRect.x + 6f, rowRect.y + 8f, 18f, 18f);
             GUI.color = substanceColor;
             GUI.DrawTexture(swatchRect, Texture2D.whiteTexture);
             GUI.color = Color.white;
 
-            string phaseName = GetPhaseName(ChemistrySystem.GetSubstancePhase(substance));
-            float amount = env.GetChemicalAmount(substance);
+            string phaseName = GetPhaseName(substance.Phase);
+            float amount = env.GetChemicalAmount(substance.Index);
             string rowText = string.Format("{0} ({1})  {2:F2} 单位{3}",
-                ChemistrySystem.GetSubstanceName(substance),
+                substance.DisplayName,
                 phaseName,
                 amount,
                 selected ? "  [显示中]" : "");
