@@ -5,13 +5,14 @@
 ### 修改文件
 
 #### Assets/Scripts/Core/SimulationCore.cs
-- 移除世界初始化时的 `SeedEnvironmentBaselines`，环境格不再自动获得地形基准化学量。
+- 保留世界初始化时的 `SeedEnvironmentBaselines`（仅开局一次按地形播种基准化学量）。
+- 不添加每回合持续基线恢复（那不是初始物质，而是持续物质源）。
 
 #### Assets/Scripts/Core/ChemistrySystem.cs
-- 删除 `SeedEnvironmentBaselines` / `ApplyBaselineForTopography`；JSON 中 baseline 字段仅保留配置用途，不再作为环境源。
+- 恢复 `SeedEnvironmentBaselines` / `ApplyBaselineForTopography`，仅用于新游戏开局与 v1 读档兼容。
 
 #### Assets/Scripts/Core/SaveSystem.cs
-- v1 读档改为初始化空化学量数组，不再回填地形基准。
+- v1 读档仍使用 `ApplyBaselineForTopography` 回填初始化学量。
 
 #### Assets/Scripts/Managers/CellRenderer.cs
 - 温度/光照/化学叠加改为：CPU 写入源纹理 → `OverlayComposite` shader 在 GPU 合成一张 RenderTexture → 单次 DrawMesh 渲染。

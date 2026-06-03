@@ -77,6 +77,7 @@ public static class SimulationCore
         TerrainGenerator.Generate(EnvirData, SimulationConfig.WorldSeed);
         ChemistrySystem.Init();
         ChemistrySystem.ResetOverlayMask();
+        ChemistrySystem.SeedEnvironmentBaselines(EnvirData);
         GeneMutationTable.Init();
         EventSystem.Init();
         EventSystem.ResetRuntimeState();
