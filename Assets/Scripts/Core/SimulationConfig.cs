@@ -55,6 +55,8 @@ public static class SimulationConfig
     public static float HeatConductionLand = 1.00f;  // 陆地热传导效率
     public static float HeatConductionSand = 0.75f;  // 沙滩热传导效率
     public static float HeatConductionWater = 0.50f; // 水域热传导效率
+    public static float ChemicalGasDiffusionStrength = 0.35f; // 气体物质扩散强度
+    public static float ChemicalLiquidDiffusionStrength = 0.20f; // 液体/溶质仅在水域中的扩散强度
 
     // 调试：温度统计
     public static bool DebugTempStatsEnabled = false; // 是否输出温度统计

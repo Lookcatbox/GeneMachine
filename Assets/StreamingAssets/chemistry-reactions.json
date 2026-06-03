@@ -40,7 +40,7 @@
     {
       "id": "sulfate",
       "displayName": "硫酸盐",
-      "phase": "Solid",
+      "phase": "Liquid",
       "color": "#C0C7F2",
       "overlayMax": 5.0,
       "baselineLand": 0.5,

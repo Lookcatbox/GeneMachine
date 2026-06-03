@@ -34,7 +34,7 @@ public class ChemistrySubstanceRuntime
     public float BaselineWater;
 }
 
-class ChemicalReactionRuntime
+public class ChemicalReactionRuntime
 {
     public string Id;
     public string Name;
@@ -55,8 +55,11 @@ public static class ChemistrySystem
     const string ConfigFileName = "chemistry-reactions.json";
 
     static ChemistrySubstanceRuntime[] substances = new ChemistrySubstanceRuntime[0];
+    static ChemistrySubstanceRuntime[] diffusibleSubstances = new ChemistrySubstanceRuntime[0];
     static ChemicalReactionRuntime[] reactions = new ChemicalReactionRuntime[0];
     static Dictionary<string, int> substanceIndexById = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+    static HashSet<string> loggedReactionRuntimeErrors = new HashSet<string>();
+    static readonly object reactionRuntimeErrorLock = new object();
     static bool initialized;
     static long chemicalRevision;
 
@@ -121,6 +124,11 @@ public static class ChemistrySystem
         return Interlocked.Read(ref chemicalRevision);
     }
 
+    public static void MarkChemicalAmountsChanged()
+    {
+        Interlocked.Increment(ref chemicalRevision);
+    }
+
     public static int GetSubstanceIndex(string id)
     {
         if (string.IsNullOrEmpty(id))
@@ -138,6 +146,11 @@ public static class ChemistrySystem
     {
         ChemistrySubstanceRuntime substance = GetSubstance(substanceIndex);
         return substance != null ? substance.DisplayName : "未知物质";
+    }
+
+    public static ChemistrySubstanceRuntime[] GetDiffusibleSubstances()
+    {
+        return diffusibleSubstances ?? new ChemistrySubstanceRuntime[0];
     }
 
     public static ChemicalPhase GetSubstancePhase(int substanceIndex)
@@ -204,6 +217,7 @@ public static class ChemistrySystem
             return;
 
         int size = SimulationConfig.EnvirSize;
+        int substanceCount = SubstanceCount;
         Parallel.For(1, size + 1, y =>
         {
             for (int x = 1; x <= size; x++)
@@ -211,7 +225,7 @@ public static class ChemistrySystem
                 Envir env = envirData[x, y];
                 if (env == null)
                     continue;
-                env.EnsureChemicalCapacity(SubstanceCount);
+                env.EnsureChemicalCapacity(substanceCount);
                 ApplyReactionsToCell(env);
             }
         });
@@ -229,20 +243,43 @@ public static class ChemistrySystem
             if (!reaction.Enabled)
                 continue;
 
-            float limiting = GetLimitingAmount(env, reaction);
-            if (limiting <= 0f)
-                continue;
+            try
+            {
+                float limiting = GetLimitingAmount(env, reaction);
+                if (limiting <= 0f)
+                    continue;
 
-            ChemistryExpressionContext context = BuildExpressionContext(env, reaction, tempC, light, limiting);
-            if (reaction.Condition != null && reaction.Condition.Evaluate(context) == 0f)
-                continue;
+                ChemistryExpressionContext context = BuildExpressionContext(env, reaction, tempC, light, limiting);
+                if (reaction.Condition != null && reaction.Condition.Evaluate(context) == 0f)
+                    continue;
 
-            float delta = reaction.RateExpression != null ? reaction.RateExpression.Evaluate(context) : 0f;
-            if (delta <= 0f)
-                continue;
+                float delta = reaction.RateExpression != null ? reaction.RateExpression.Evaluate(context) : 0f;
+                if (delta <= 0f)
+                    continue;
 
-            ApplyReactionDelta(env, reaction, delta);
+                ApplyReactionDelta(env, reaction, delta);
+            }
+            catch (ThreadAbortException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogReactionRuntimeErrorOnce(reaction, ex);
+            }
         }
+    }
+
+    static void LogReactionRuntimeErrorOnce(ChemicalReactionRuntime reaction, Exception ex)
+    {
+        string id = reaction != null ? reaction.Id : "<unknown>";
+        lock (reactionRuntimeErrorLock)
+        {
+            if (!loggedReactionRuntimeErrors.Add(id))
+                return;
+        }
+
+        Debug.LogError("化学反应运行失败，已跳过该反应以保持模拟继续: " + id + " - " + ex.Message);
     }
 
     static float GetLimitingAmount(Envir env, ChemicalReactionRuntime reaction)
@@ -273,10 +310,18 @@ public static class ChemistrySystem
             height = env.Height,
             topography = env.Topography,
             limiting = limiting,
-            AmountOf = id => env.GetChemicalAmount(GetSubstanceIndex(id)),
-            ReactantCoeffOf = id => GetCoeff(id, reaction.ReactantIds, reaction.ReactantCoeffs),
-            ProductCoeffOf = id => GetCoeff(id, reaction.ProductIds, reaction.ProductCoeffs)
+            env = env,
+            reaction = reaction
         };
+    }
+
+    public static float GetTermCoeff(ChemicalReactionRuntime reaction, string id, bool reactant)
+    {
+        if (reaction == null)
+            return 0f;
+        return reactant
+            ? GetCoeff(id, reaction.ReactantIds, reaction.ReactantCoeffs)
+            : GetCoeff(id, reaction.ProductIds, reaction.ProductCoeffs);
     }
 
     static float GetCoeff(string id, string[] ids, float[] coeffs)
@@ -384,9 +429,27 @@ public static class ChemistrySystem
 
         nextReactions.Sort((a, b) => b.Priority.CompareTo(a.Priority));
         substances = nextSubstances.ToArray();
+        diffusibleSubstances = BuildDiffusibleSubstanceList(substances);
         reactions = nextReactions.ToArray();
         substanceIndexById = nextIndexById;
+        lock (reactionRuntimeErrorLock)
+            loggedReactionRuntimeErrors.Clear();
         return true;
+    }
+
+    static ChemistrySubstanceRuntime[] BuildDiffusibleSubstanceList(ChemistrySubstanceRuntime[] source)
+    {
+        if (source == null || source.Length == 0)
+            return new ChemistrySubstanceRuntime[0];
+
+        List<ChemistrySubstanceRuntime> result = new List<ChemistrySubstanceRuntime>();
+        for (int i = 0; i < source.Length; i++)
+        {
+            ChemistrySubstanceRuntime substance = source[i];
+            if (substance != null && (substance.Phase == ChemicalPhase.Gas || substance.Phase == ChemicalPhase.Liquid))
+                result.Add(substance);
+        }
+        return result.ToArray();
     }
 
     static bool TryBuildReaction(ChemistryReactionConfig source, Dictionary<string, int> indexById, out ChemicalReactionRuntime reaction, out string error)
@@ -502,7 +565,7 @@ public static class ChemistrySystem
                 new ChemistrySubstanceConfig { id = "co2", displayName = "CO2", phase = "Gas", color = "#8C8C8C", overlayMax = 6f, baselineLand = SimulationConfig.ChemBaselineCO2Land, baselineWater = SimulationConfig.ChemBaselineCO2Water },
                 new ChemistrySubstanceConfig { id = "h2", displayName = "H2", phase = "Gas", color = "#33BFDD", overlayMax = 4f, baselineLand = SimulationConfig.ChemBaselineH2Land, baselineWater = SimulationConfig.ChemBaselineH2Water },
                 new ChemistrySubstanceConfig { id = "h2s", displayName = "H2S", phase = "Gas", color = "#E6CC26", overlayMax = 4f, baselineLand = SimulationConfig.ChemBaselineH2SLand, baselineWater = SimulationConfig.ChemBaselineH2SWater },
-                new ChemistrySubstanceConfig { id = "sulfate", displayName = "硫酸盐", phase = "Solid", color = "#C0C7F2", overlayMax = 5f, baselineLand = SimulationConfig.ChemBaselineSulfateLand, baselineWater = SimulationConfig.ChemBaselineSulfateWater }
+                new ChemistrySubstanceConfig { id = "sulfate", displayName = "硫酸盐", phase = "Liquid", color = "#C0C7F2", overlayMax = 5f, baselineLand = SimulationConfig.ChemBaselineSulfateLand, baselineWater = SimulationConfig.ChemBaselineSulfateWater }
             },
             reactions = new[]
             {

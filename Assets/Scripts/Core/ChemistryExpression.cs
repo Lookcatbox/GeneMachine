@@ -9,9 +9,25 @@ public struct ChemistryExpressionContext
     public int height;
     public int topography;
     public float limiting;
-    public Func<string, float> AmountOf;
-    public Func<string, float> ReactantCoeffOf;
-    public Func<string, float> ProductCoeffOf;
+    public Envir env;
+    public ChemicalReactionRuntime reaction;
+
+    public float GetAmount(string substanceId)
+    {
+        if (env == null || string.IsNullOrEmpty(substanceId))
+            return 0f;
+        return env.GetChemicalAmount(ChemistrySystem.GetSubstanceIndex(substanceId));
+    }
+
+    public float GetReactantCoeff(string substanceId)
+    {
+        return ChemistrySystem.GetTermCoeff(reaction, substanceId, reactant: true);
+    }
+
+    public float GetProductCoeff(string substanceId)
+    {
+        return ChemistrySystem.GetTermCoeff(reaction, substanceId, reactant: false);
+    }
 }
 
 public class ChemistryExpression
@@ -30,7 +46,8 @@ public class ChemistryExpression
         if (string.IsNullOrWhiteSpace(source))
             source = "1";
         Parser parser = new Parser(source);
-        return new ChemistryExpression(source, parser.Parse());
+        Node root = parser.Parse().Optimize();
+        return new ChemistryExpression(source, root);
     }
 
     public float Evaluate(ChemistryExpressionContext context)
@@ -49,6 +66,16 @@ public class ChemistryExpression
     abstract class Node
     {
         public abstract float Evaluate(ChemistryExpressionContext context);
+
+        // 编译期优化：返回等价但更快的节点（常量折叠等）。默认不变。
+        public virtual Node Optimize() => this;
+
+        // 是否为编译期常量；若是，输出其值。用于常量折叠。
+        public virtual bool TryGetConstant(out float value)
+        {
+            value = 0f;
+            return false;
+        }
     }
 
     class NumberNode : Node
@@ -63,6 +90,12 @@ public class ChemistryExpression
         public override float Evaluate(ChemistryExpressionContext context)
         {
             return value;
+        }
+
+        public override bool TryGetConstant(out float value)
+        {
+            value = this.value;
+            return true;
         }
     }
 
@@ -88,11 +121,18 @@ public class ChemistryExpression
                 case "limiting": return context.limiting;
                 case "true": return 1f;
                 case "false": return 0f;
-                case "amount": return context.AmountOf != null ? context.AmountOf(key) : 0f;
-                case "reactantCoeff": return context.ReactantCoeffOf != null ? context.ReactantCoeffOf(key) : 0f;
-                case "productCoeff": return context.ProductCoeffOf != null ? context.ProductCoeffOf(key) : 0f;
+                case "amount": return context.GetAmount(key);
+                case "reactantCoeff": return context.GetReactantCoeff(key);
+                case "productCoeff": return context.GetProductCoeff(key);
                 default: throw new InvalidOperationException("未知变量: " + name);
             }
+        }
+
+        public override Node Optimize()
+        {
+            if (name == "true") return new NumberNode(1f);
+            if (name == "false") return new NumberNode(0f);
+            return this;
         }
     }
 
@@ -113,6 +153,14 @@ public class ChemistryExpression
             if (op == "-") return -value;
             if (op == "!") return value == 0f ? 1f : 0f;
             return value;
+        }
+
+        public override Node Optimize()
+        {
+            Node optimizedInner = inner.Optimize();
+            if (optimizedInner.TryGetConstant(out _))
+                return new NumberNode(new UnaryNode(op, optimizedInner).Evaluate(default));
+            return new UnaryNode(op, optimizedInner);
         }
     }
 
@@ -153,6 +201,15 @@ public class ChemistryExpression
                 default: throw new InvalidOperationException("未知运算符: " + op);
             }
         }
+
+        public override Node Optimize()
+        {
+            Node optimizedLeft = left.Optimize();
+            Node optimizedRight = right.Optimize();
+            if (optimizedLeft.TryGetConstant(out _) && optimizedRight.TryGetConstant(out _))
+                return new NumberNode(new BinaryNode(op, optimizedLeft, optimizedRight).Evaluate(default));
+            return new BinaryNode(op, optimizedLeft, optimizedRight);
+        }
     }
 
     class FunctionNode : Node
@@ -192,6 +249,87 @@ public class ChemistryExpression
             if (args.Count != count)
                 throw new InvalidOperationException(name + " 需要 " + count + " 个参数");
         }
+
+        public override Node Optimize()
+        {
+            int expectedArgs = name switch
+            {
+                "abs" => 1,
+                "min" => 2,
+                "max" => 2,
+                "pow" => 2,
+                "clamp" => 3,
+                _ => throw new InvalidOperationException("未知函数: " + name)
+            };
+            if (args.Count != expectedArgs)
+                throw new InvalidOperationException(name + " 需要 " + expectedArgs + " 个参数");
+
+            List<Node> optimizedArgs = new List<Node>(args.Count);
+            bool allConst = true;
+            for (int i = 0; i < args.Count; i++)
+            {
+                Node optimizedArg = args[i].Optimize();
+                optimizedArgs.Add(optimizedArg);
+                if (!optimizedArg.TryGetConstant(out _))
+                    allConst = false;
+            }
+
+            if (allConst)
+                return new NumberNode(new FunctionNode(name, optimizedArgs).Evaluate(default));
+
+            if (name == "pow" && optimizedArgs[1].TryGetConstant(out float exponent))
+                return new PowConstNode(optimizedArgs[0], exponent);
+
+            return new FunctionNode(name, optimizedArgs);
+        }
+    }
+
+    // pow(base, 常量指数) 特化：整数指数用乘法，0.5 用 Sqrt，其余缓存指数后用 Math.Pow，
+    // 避免每次求值都遍历指数子树和做参数数量检查。
+    class PowConstNode : Node
+    {
+        readonly Node baseNode;
+        readonly float exponent;
+        readonly int intExponent;
+        readonly bool useIntMultiply;
+        readonly bool useSqrt;
+
+        public PowConstNode(Node baseNode, float exponent)
+        {
+            this.baseNode = baseNode;
+            this.exponent = exponent;
+
+            useSqrt = exponent == 0.5f;
+            int rounded = (int)exponent;
+            useIntMultiply = !useSqrt && rounded == exponent && rounded >= 0 && rounded <= 4;
+            intExponent = rounded;
+        }
+
+        public override float Evaluate(ChemistryExpressionContext context)
+        {
+            float b = baseNode.Evaluate(context);
+
+            if (useSqrt)
+                return b <= 0f ? 0f : (float)Math.Sqrt(b);
+
+            if (useIntMultiply)
+            {
+                switch (intExponent)
+                {
+                    case 0: return 1f;
+                    case 1: return b;
+                    case 2: return b * b;
+                    case 3: return b * b * b;
+                    default:
+                        float square = b * b;
+                        return square * square;
+                }
+            }
+
+            return (float)Math.Pow(b, exponent);
+        }
+
+        public override Node Optimize() => this;
     }
 
     class Parser
@@ -291,6 +429,9 @@ public class ChemistryExpression
 
             if (Match("("))
             {
+                if (!IsAllowedFunction(identifier))
+                    throw new InvalidOperationException("未知函数: " + identifier);
+
                 List<Node> args = new List<Node>();
                 SkipWhitespace();
                 if (!Match(")"))
@@ -311,7 +452,42 @@ public class ChemistryExpression
                 key = ParseString();
                 Expect("]");
             }
+            ValidateVariable(identifier, key);
             return new VariableNode(identifier, key);
+        }
+
+        static bool IsAllowedFunction(string identifier)
+        {
+            return identifier == "abs"
+                || identifier == "min"
+                || identifier == "max"
+                || identifier == "pow"
+                || identifier == "clamp";
+        }
+
+        static void ValidateVariable(string identifier, string key)
+        {
+            switch (identifier)
+            {
+                case "tempC":
+                case "light":
+                case "height":
+                case "topography":
+                case "limiting":
+                case "true":
+                case "false":
+                    if (key != null)
+                        throw new InvalidOperationException(identifier + " 不支持索引");
+                    return;
+                case "amount":
+                case "reactantCoeff":
+                case "productCoeff":
+                    if (string.IsNullOrWhiteSpace(key))
+                        throw new InvalidOperationException(identifier + " 需要字符串索引，例如 " + identifier + "[\"organic\"]");
+                    return;
+                default:
+                    throw new InvalidOperationException("未知变量: " + identifier);
+            }
         }
 
         Node ParseNumber()

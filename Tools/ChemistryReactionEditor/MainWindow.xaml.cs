@@ -334,7 +334,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     static string FindDefaultConfigPath()
     {
-        DirectoryInfo dir = new(AppContext.BaseDirectory);
+        DirectoryInfo? dir = new(AppContext.BaseDirectory);
         while (dir != null)
         {
             string candidate = Path.Combine(dir.FullName, "Assets", "StreamingAssets", "chemistry-reactions.json");
@@ -353,7 +353,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         config.Substances.Add(new SubstanceModel { Id = "co2", DisplayName = "CO2", Phase = "Gas", Color = "#8C8C8C", OverlayMax = 6f, BaselineLand = 1.2f, BaselineWater = 2.0f });
         config.Substances.Add(new SubstanceModel { Id = "h2", DisplayName = "H2", Phase = "Gas", Color = "#33BFDD", OverlayMax = 4f, BaselineLand = 0.3f, BaselineWater = 0.8f });
         config.Substances.Add(new SubstanceModel { Id = "h2s", DisplayName = "H2S", Phase = "Gas", Color = "#E6CC26", OverlayMax = 4f, BaselineLand = 0.2f, BaselineWater = 0.6f });
-        config.Substances.Add(new SubstanceModel { Id = "sulfate", DisplayName = "硫酸盐", Phase = "Solid", Color = "#C0C7F2", OverlayMax = 5f, BaselineLand = 0.5f, BaselineWater = 1.5f });
+        config.Substances.Add(new SubstanceModel { Id = "sulfate", DisplayName = "硫酸盐", Phase = "Liquid", Color = "#C0C7F2", OverlayMax = 5f, BaselineLand = 0.5f, BaselineWater = 1.5f });
         return config;
     }
 

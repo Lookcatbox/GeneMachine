@@ -1,5 +1,116 @@
 # 修改日志
 
+## 2026-06-03 修复化学反应 ThreadAbortException
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 环境反应改为串行遍历格子，避免在模拟后台线程上使用 `Parallel.For` 触发 `ThreadAbortException` / `TaskSchedulerException`。
+- `BuildExpressionContext` 不再为每格每反应分配委托闭包，改为在 `ChemistryExpressionContext` 中直接引用 `Envir` 与反应数据。
+
+#### Assets/Scripts/Core/ChemistryExpression.cs
+- 表达式上下文用 `GetAmount` / `GetReactantCoeff` / `GetProductCoeff` 方法替代 `Func` 委托。
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 模拟线程在 Unity 停止或关闭时若收到 `ThreadAbortException`（含 `AggregateException` 包装），静默退出而不再当作致命错误停步。
+
+## 2026-06-03 防止化学表达式错误中断模拟
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistryExpression.cs
+- 表达式编译阶段新增变量与函数白名单校验，未知变量/函数会在加载化学配置时失败，而不是等到模拟步运行时抛异常。
+- `amount`、`reactantCoeff`、`productCoeff` 必须使用字符串索引，避免错误表达式进入运行期。
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 单个化学反应运行失败时只记录一次错误并跳过该反应，避免异常冒泡到模拟线程导致步数停止推进。
+- 重新应用配置时清空反应运行错误记录。
+
+## 2026-06-03 表达式编译优化 + 扩散统一按行并行
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistryExpression.cs
+- 新增编译期优化 `Optimize()`：常量子树折叠为单个数值节点，`true`/`false` 折叠为常量。
+- 函数参数数量在编译期校验（错误配置加载时即失败回退），不再在每次求值时检查。
+- 新增 `PowConstNode`：`pow(x, 常量指数)` 特化——整数指数(0~4)用乘法、0.5 用 `Sqrt`、其余缓存指数后用 `Math.Pow`，避免每格每反应重复遍历指数子树。
+
+#### Assets/Scripts/Core/EnvironmentDiffusionSystem.cs
+- 扩散调度改为物质串行外层 + 各物质内部按行并行（取代按物质并行）。分析：按物质并行的并行度=物质数+1，物质数少于核心数时核心闲置且温度任务偏重产生尾延迟；按行并行始终接近行数满载，即便后续增加物质也不逊于按物质并行。
+
+#### Assets/Scripts/Core/HeatDiffusion.cs / ChemicalDiffusion.cs
+- 内部网格遍历恢复按行 `Parallel.For`；与外层串行调度配合，无嵌套并行。
+
+## 2026-06-03 修复每步耗时过长（恢复反应并行 + 去嵌套并行）
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- `ApplyEnvironmentReactions` 恢复按行 `Parallel.For` 并行（此前为修 ThreadAbort 改为串行，导致 400 万格 × 反应在单线程上跑，每步约 10s）。每格仅读写自身化学量，行间无依赖，线程安全。
+
+#### Assets/Scripts/Core/HeatDiffusion.cs
+- 内部三段网格遍历改回串行 `for`，避免与外层「按物质并行」调度构成嵌套并行导致线程过度订阅。
+
+#### Assets/Scripts/Core/ChemicalDiffusion.cs
+- 单物质内部网格遍历改回串行 `for`，由外层调度器按物质并行；消除嵌套并行开销。
+
+## 2026-06-03 扩散改回按物质并行
+
+### 修改文件
+
+#### Assets/Scripts/Core/EnvironmentDiffusionSystem.cs
+- 温度与各可扩散化学物质（Gas/Liquid）改为 `Parallel.For` 按物质并行；单物质内部仍按行并行。
+
+#### Assets/Scripts/Core/ChemicalDiffusion.cs
+- `PrepareBuffers` 仅在调度器并行前调用一次，避免多物质并行时重复分配缓冲产生竞态。
+
+## 2026-06-03 扩散改为物质顺序、内部并行
+
+### 修改文件
+
+#### Assets/Scripts/Core/EnvironmentDiffusionSystem.cs
+- 扩散调度器改为顺序执行：先温度，再按化学配置顺序逐个扩散气体、液体/溶质。
+
+#### Assets/Scripts/Core/HeatDiffusion.cs
+- 恢复热扩散内部按行并行计算。
+
+#### Assets/Scripts/Core/ChemicalDiffusion.cs
+- 单个化学物质扩散内部改为按行并行计算，物质之间不再并行。
+
+#### CodeMenu.md
+- 更新扩散系统说明为物质顺序、单物质内部并行。
+
+## 2026-06-03 按物质并行的环境扩散
+
+### 新增文件
+
+#### Assets/Scripts/Core/ChemicalDiffusion.cs
+- 新增单个化学物质的扩散计算，气体可在全地形扩散，液体/溶质仅在海洋、河流、湖泊等水域格之间扩散。
+- 扩散器内部使用串行双层循环，不再在单个物质内部拆行并行。
+
+#### Assets/Scripts/Core/EnvironmentDiffusionSystem.cs
+- 新增扩散调度器，将温度视为一种物质，与所有气体、液体/溶质物质按物质并行运行扩散。
+
+### 修改文件
+
+#### Assets/Scripts/Core/HeatDiffusion.cs
+- 移除热扩散内部的 `Parallel.For`，保留原有光照增温、散热与邻域扩散逻辑。
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 模拟步改为调用统一环境扩散调度器，再执行化学反应。
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 缓存所有可扩散物质（Gas/Liquid），供扩散调度器按物质并行执行。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增气体扩散强度与液体/溶质扩散强度配置。
+
+#### Assets/StreamingAssets/chemistry-reactions.json
+- 默认将硫酸盐标记为 `Liquid`，作为水中溶质参与水域扩散。
+
+#### CodeMenu.md
+- 登记化学扩散与统一环境扩散调度器。
+
 ## 2026-06-02 外部化学反应编辑器
 
 ### 新增文件

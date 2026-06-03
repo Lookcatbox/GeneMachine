@@ -58,6 +58,8 @@
 | Assets/Scripts/Core/ChemistryConfigData.cs | 化学 JSON 配置的数据结构定义。 |
 | Assets/Scripts/Core/ChemistryExpression.cs | 化学条件和动力方程的安全表达式解析与求值。 |
 | Assets/Scripts/Core/ChemistrySystem.cs | 从 JSON 加载化学物质/反应，执行环境格非生物化学反应与热力图归一化。 |
+| Assets/Scripts/Core/ChemicalDiffusion.cs | 单个化学物质的并行扩散计算：气体全地形扩散，液体/溶质仅在水域格之间扩散。 |
+| Assets/Scripts/Core/EnvironmentDiffusionSystem.cs | 环境扩散调度器：物质串行调度，各物质（含温度）内部按行并行。 |
 | Assets/Scripts/Core/ResearchPlayerPanelTab.cs | 研发界面页签：显示研发点并提供温度耐受升级。 |
 | Assets/Scripts/Core/PopulationPlayerPanelTab.cs | 种群页签占位实现，预留后续扩展。 |
 | Assets/Scripts/Core/PlayerPanelTabPage.cs | 玩家面板页签基类与上下文数据结构。 |

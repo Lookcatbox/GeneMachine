@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 背单词 · Vocab Trainer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1>AI 背单词</h1>
+      <p class="subtitle">DeepSeek 驱动 · 艾宾浩斯复习 · 智能学习 Agent</p>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="words" role="tab">词库</button>
+      <button class="tab" data-tab="review" role="tab">复习</button>
+      <button class="tab" data-tab="study" role="tab">学习</button>
+      <button class="tab" data-tab="agent" role="tab">学习 Agent</button>
+      <button class="tab" data-tab="history" role="tab">记录</button>
+      <button class="tab" data-tab="settings" role="tab">设置</button>
+    </nav>
+
+    <main class="main">
+      <!-- 词库 -->
+      <section id="panel-words" class="panel active">
+        <div class="card">
+          <h2>导入单词</h2>
+          <p class="hint">每行一个单词，格式：<code>单词 | 释义</code> 或仅单词（释义由 AI 补充）</p>
+          <textarea id="import-text" rows="6" placeholder="abandon | 放弃；遗弃&#10;meticulous | 一丝不苟的&#10;ephemeral"></textarea>
+          <div class="row">
+            <button id="btn-import" class="btn primary">导入</button>
+            <label class="btn secondary file-label">
+              从文件导入
+              <input type="file" id="import-file" accept=".txt,.csv" hidden>
+            </label>
+          </div>
+        </div>
+        <div class="card">
+          <div class="row between">
+            <h2>词库列表 <span id="word-count" class="badge">0</span></h2>
+            <button id="btn-clear-words" class="btn danger small">清空词库</button>
+          </div>
+          <div id="word-list" class="word-list"></div>
+        </div>
+      </section>
+
+      <!-- 复习（艾宾浩斯） -->
+      <section id="panel-review" class="panel">
+        <div class="card">
+          <h2>艾宾浩斯复习</h2>
+          <p class="hint">根据遗忘曲线自动安排复习；到期单词会出现在「学习」中。</p>
+          <div class="stats-grid">
+            <div class="stat"><span id="stat-due">0</span><label>今日待复习</label></div>
+            <div class="stat"><span id="stat-new">0</span><label>新词</label></div>
+            <div class="stat"><span id="stat-mastered">0</span><label>已掌握</label></div>
+          </div>
+          <button id="btn-start-review" class="btn primary large">开始复习（<span id="review-count">0</span> 词）</button>
+        </div>
+        <div class="card">
+          <h3>复习计划预览</h3>
+          <div id="review-schedule" class="schedule-list"></div>
+        </div>
+      </section>
+
+      <!-- 学习会话 -->
+      <section id="panel-study" class="panel">
+        <div id="study-idle" class="card">
+          <h2>单词学习</h2>
+          <p class="hint">AI 为每个单词生成至少 6 种题型，每次重新出题。掌握不佳的单词会在本轮追加练习。</p>
+          <label>本轮单词数
+            <input type="number" id="study-batch-size" min="1" max="50" value="5">
+          </label>
+          <div class="row">
+            <button id="btn-start-study-due" class="btn primary">学习到期单词</button>
+            <button id="btn-start-study-all" class="btn secondary">随机学习</button>
+          </div>
+        </div>
+        <div id="study-active" class="hidden">
+          <div class="progress-bar"><div id="study-progress" class="progress-fill"></div></div>
+          <p id="study-status" class="status-text"></p>
+          <div id="question-area" class="question-area"></div>
+        </div>
+        <div id="study-report" class="card hidden"></div>
+      </section>
+
+      <!-- 学习 Agent -->
+      <section id="panel-agent" class="panel">
+        <div id="agent-idle" class="card">
+          <h2>学习 Agent</h2>
+          <p class="hint">描述你想学习的知识领域，AI 生成专项训练题。薄弱知识点会临时加练，结束后生成总结报告。</p>
+          <label>学习主题
+            <input type="text" id="agent-topic" placeholder="例如：高中物理电磁感应、雅思写作连接词、Python 列表推导式">
+          </label>
+          <label>目标题量
+            <input type="number" id="agent-count" min="3" max="30" value="10">
+          </label>
+          <label>难度
+            <select id="agent-difficulty">
+              <option value="easy">基础</option>
+              <option value="medium" selected>中等</option>
+              <option value="hard">进阶</option>
+            </select>
+          </label>
+          <button id="btn-start-agent" class="btn primary large">开始 Agent 训练</button>
+        </div>
+        <div id="agent-active" class="hidden">
+          <div class="progress-bar"><div id="agent-progress" class="progress-fill"></div></div>
+          <p id="agent-status" class="status-text"></p>
+          <div id="agent-question-area" class="question-area"></div>
+        </div>
+        <div id="agent-report" class="card hidden"></div>
+      </section>
+
+      <!-- 历史记录 -->
+      <section id="panel-history" class="panel">
+        <div class="card">
+          <div class="row between">
+            <h2>错题本</h2>
+            <button id="btn-clear-wrong" class="btn danger small">清空错题</button>
+          </div>
+          <div id="wrong-list" class="wrong-list"></div>
+        </div>
+        <div class="card">
+          <h2>训练报告</h2>
+          <div id="report-list" class="report-list"></div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section id="panel-settings" class="panel">
+        <div class="card">
+          <h2>DeepSeek API</h2>
+          <p class="hint">密钥仅保存在本机浏览器 localStorage，经本地代理转发请求。</p>
+          <label>API Key
+            <input type="password" id="api-key" placeholder="sk-...">
+          </label>
+          <label>API Base URL
+            <input type="text" id="api-base" value="https://api.deepseek.com">
+          </label>
+          <label>模型（普通出题 / 判分 / 报告）
+            <input type="text" id="api-model" value="deepseek-chat">
+          </label>
+          <p class="hint diagram-mode-hint">
+            图示生成固定：<strong id="diagram-mode-label">deepseek-v4-pro · Thinking Max</strong>
+            <br>生成含 diagram 的题目时自动使用，不可关闭。
+          </p>
+          <label>代理地址（本地 server.py 默认）
+            <input type="text" id="proxy-url" value="http://127.0.0.1:8765/api/chat">
+          </label>
+          <button id="btn-save-settings" class="btn primary">保存设置</button>
+          <button id="btn-test-api" class="btn secondary">测试连接</button>
+          <p id="api-test-result" class="hint"></p>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast" class="toast hidden"></div>
+    <div id="loading-overlay" class="loading-overlay hidden">
+      <div class="spinner"></div>
+      <p id="loading-text">AI 正在生成题目…</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

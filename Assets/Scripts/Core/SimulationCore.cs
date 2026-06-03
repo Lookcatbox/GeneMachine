@@ -226,6 +226,23 @@ public static class SimulationCore
         simulationThread.Start();
     }
 
+    static bool IsSimulationShutdownException(Exception ex)
+    {
+        if (ex is ThreadAbortException)
+            return true;
+
+        if (ex is AggregateException aggregate)
+        {
+            foreach (Exception inner in aggregate.Flatten().InnerExceptions)
+            {
+                if (inner is ThreadAbortException)
+                    return true;
+            }
+        }
+
+        return false;
+    }
+
     private static void CalculationLoop()
     {
         ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
@@ -257,6 +274,9 @@ public static class SimulationCore
                 }
                 catch (Exception ex)
                 {
+                    if (IsSimulationShutdownException(ex))
+                        break;
+
                     isRunning = false;
                     Debug.LogException(ex);
                     break;
@@ -290,7 +310,7 @@ public static class SimulationCore
     private static void SimulateOneStep()
     {
         LightUpdate.Update(EnvirData);
-        HeatDiffusion.Update(EnvirData);
+        EnvironmentDiffusionSystem.Update(EnvirData);
         ChemistrySystem.ApplyEnvironmentReactions(EnvirData);
 
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
