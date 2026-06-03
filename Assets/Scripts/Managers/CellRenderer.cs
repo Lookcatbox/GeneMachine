@@ -54,25 +54,22 @@ public class CellRenderer : MonoBehaviour
     private Mesh bgMesh;
     private bool bgNormalDirty = true;
 
-    // 叠加层（温度/光照热力图）
+    // 叠加层源纹理（CPU 写入编码/颜色）与 GPU 合成结果
     private Texture2D overlayTexture;
-    private Material overlayMaterial;
+    private Texture2D chemicalOverlayTexture;
+    private RenderTexture compositeOverlayTexture;
+    private Material compositeBlitMaterial;
+    private Material compositeDisplayMaterial;
     private Mesh overlayMesh;
     private bool overlayDirty = true;
     private long lastOverlayStep = -1;
     private float lastOverlayUpdateTime = 0f;
     private Color32[] overlayPixels;
+    private Color32[] chemicalOverlayPixels;
     private int overlayTextureSize;
     private int overlayDownsampleFactor = 1;
-
-    // 化学物质叠加层（CPU 预计算颜色）
-    private Texture2D chemicalOverlayTexture;
-    private Material chemicalOverlayMaterial;
-    private Color32[] chemicalOverlayPixels;
-    private bool chemicalOverlayDirty = true;
     private int lastChemicalOverlayMask = 0;
     private long lastChemicalOverlayRevision = -1;
-    private float lastChemicalOverlayUpdateTime = 0f;
 
     void Start()
     {
@@ -88,14 +85,23 @@ public class CellRenderer : MonoBehaviour
         CreateMaterials();
         CreateLineMaterial();
         CreateBackground();
-        CreateOverlay();
-        CreateChemicalOverlay();
+        CreateOverlaySources();
+        CreateCompositeOverlay();
+    }
+
+    void OnDestroy()
+    {
+        if (compositeOverlayTexture != null)
+        {
+            compositeOverlayTexture.Release();
+            compositeOverlayTexture = null;
+        }
     }
 
     public static void InvalidateChemicalOverlay()
     {
         if (instance != null)
-            instance.chemicalOverlayDirty = true;
+            instance.overlayDirty = true;
     }
 
     void CreateCircleTexture()
@@ -256,53 +262,65 @@ public class CellRenderer : MonoBehaviour
             bgMaterial.SetFloat("_LightingEnabled", normalLightingEnabled ? 1f : 0f);
     }
 
-    void ApplyOverlayMaterialSettings()
+    void ApplyCompositeBlitSettings()
     {
-        if (overlayMaterial == null) return;
+        if (compositeBlitMaterial == null)
+            return;
+
         bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
         bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
-        if (overlayMaterial.HasProperty("_ShowTemp"))
-            overlayMaterial.SetFloat("_ShowTemp", showTemp ? 1f : 0f);
-        if (overlayMaterial.HasProperty("_ShowLight"))
-            overlayMaterial.SetFloat("_ShowLight", showLight ? 1f : 0f);
+        bool showChem = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0
+            && ChemistrySystem.ChemicalOverlayMask != 0;
 
-        if (overlayMaterial.HasProperty("_TempBlue"))
-            overlayMaterial.SetColor("_TempBlue", SimulationConfig.TempColorBlue);
-        if (overlayMaterial.HasProperty("_TempCyan"))
-            overlayMaterial.SetColor("_TempCyan", SimulationConfig.TempColorCyan);
-        if (overlayMaterial.HasProperty("_TempGreen"))
-            overlayMaterial.SetColor("_TempGreen", SimulationConfig.TempColorGreen);
-        if (overlayMaterial.HasProperty("_TempYellow"))
-            overlayMaterial.SetColor("_TempYellow", SimulationConfig.TempColorYellow);
-        if (overlayMaterial.HasProperty("_TempOrange"))
-            overlayMaterial.SetColor("_TempOrange", SimulationConfig.TempColorOrange);
-        if (overlayMaterial.HasProperty("_TempRed"))
-            overlayMaterial.SetColor("_TempRed", SimulationConfig.TempColorRed);
+        if (compositeBlitMaterial.HasProperty("_ShowTemp"))
+            compositeBlitMaterial.SetFloat("_ShowTemp", showTemp ? 1f : 0f);
+        if (compositeBlitMaterial.HasProperty("_ShowLight"))
+            compositeBlitMaterial.SetFloat("_ShowLight", showLight ? 1f : 0f);
+        if (compositeBlitMaterial.HasProperty("_ShowChem"))
+            compositeBlitMaterial.SetFloat("_ShowChem", showChem ? 1f : 0f);
 
-        if (overlayMaterial.HasProperty("_TempBlueMax"))
-            overlayMaterial.SetFloat("_TempBlueMax", SimulationConfig.TempColorBlueMax);
-        if (overlayMaterial.HasProperty("_TempCyanMax"))
-            overlayMaterial.SetFloat("_TempCyanMax", SimulationConfig.TempColorCyanMax);
-        if (overlayMaterial.HasProperty("_TempGreenMax"))
-            overlayMaterial.SetFloat("_TempGreenMax", SimulationConfig.TempColorGreenMax);
-        if (overlayMaterial.HasProperty("_TempYellowMax"))
-            overlayMaterial.SetFloat("_TempYellowMax", SimulationConfig.TempColorYellowMax);
-        if (overlayMaterial.HasProperty("_TempOrangeMin"))
-            overlayMaterial.SetFloat("_TempOrangeMin", SimulationConfig.TempColorOrangeMin);
-        if (overlayMaterial.HasProperty("_TempOrangeMax"))
-            overlayMaterial.SetFloat("_TempOrangeMax", SimulationConfig.TempColorOrangeMax);
-        if (overlayMaterial.HasProperty("_TempRedMin"))
-            overlayMaterial.SetFloat("_TempRedMin", SimulationConfig.TempColorRedMin);
+        if (compositeBlitMaterial.HasProperty("_TempBlue"))
+            compositeBlitMaterial.SetColor("_TempBlue", SimulationConfig.TempColorBlue);
+        if (compositeBlitMaterial.HasProperty("_TempCyan"))
+            compositeBlitMaterial.SetColor("_TempCyan", SimulationConfig.TempColorCyan);
+        if (compositeBlitMaterial.HasProperty("_TempGreen"))
+            compositeBlitMaterial.SetColor("_TempGreen", SimulationConfig.TempColorGreen);
+        if (compositeBlitMaterial.HasProperty("_TempYellow"))
+            compositeBlitMaterial.SetColor("_TempYellow", SimulationConfig.TempColorYellow);
+        if (compositeBlitMaterial.HasProperty("_TempOrange"))
+            compositeBlitMaterial.SetColor("_TempOrange", SimulationConfig.TempColorOrange);
+        if (compositeBlitMaterial.HasProperty("_TempRed"))
+            compositeBlitMaterial.SetColor("_TempRed", SimulationConfig.TempColorRed);
 
-        if (overlayMaterial.HasProperty("_TempEncodeMin"))
-            overlayMaterial.SetFloat("_TempEncodeMin", SimulationConfig.OverlayTempEncodeMin);
-        if (overlayMaterial.HasProperty("_TempEncodeMax"))
-            overlayMaterial.SetFloat("_TempEncodeMax", SimulationConfig.OverlayTempEncodeMax);
+        if (compositeBlitMaterial.HasProperty("_TempBlueMax"))
+            compositeBlitMaterial.SetFloat("_TempBlueMax", SimulationConfig.TempColorBlueMax);
+        if (compositeBlitMaterial.HasProperty("_TempCyanMax"))
+            compositeBlitMaterial.SetFloat("_TempCyanMax", SimulationConfig.TempColorCyanMax);
+        if (compositeBlitMaterial.HasProperty("_TempGreenMax"))
+            compositeBlitMaterial.SetFloat("_TempGreenMax", SimulationConfig.TempColorGreenMax);
+        if (compositeBlitMaterial.HasProperty("_TempYellowMax"))
+            compositeBlitMaterial.SetFloat("_TempYellowMax", SimulationConfig.TempColorYellowMax);
+        if (compositeBlitMaterial.HasProperty("_TempOrangeMin"))
+            compositeBlitMaterial.SetFloat("_TempOrangeMin", SimulationConfig.TempColorOrangeMin);
+        if (compositeBlitMaterial.HasProperty("_TempOrangeMax"))
+            compositeBlitMaterial.SetFloat("_TempOrangeMax", SimulationConfig.TempColorOrangeMax);
+        if (compositeBlitMaterial.HasProperty("_TempRedMin"))
+            compositeBlitMaterial.SetFloat("_TempRedMin", SimulationConfig.TempColorRedMin);
 
-        if (overlayMaterial.HasProperty("_LightDark"))
-            overlayMaterial.SetColor("_LightDark", SimulationConfig.LightColorDark);
-        if (overlayMaterial.HasProperty("_LightBright"))
-            overlayMaterial.SetColor("_LightBright", SimulationConfig.LightColorBright);
+        if (compositeBlitMaterial.HasProperty("_TempEncodeMin"))
+            compositeBlitMaterial.SetFloat("_TempEncodeMin", SimulationConfig.OverlayTempEncodeMin);
+        if (compositeBlitMaterial.HasProperty("_TempEncodeMax"))
+            compositeBlitMaterial.SetFloat("_TempEncodeMax", SimulationConfig.OverlayTempEncodeMax);
+
+        if (compositeBlitMaterial.HasProperty("_LightDark"))
+            compositeBlitMaterial.SetColor("_LightDark", SimulationConfig.LightColorDark);
+        if (compositeBlitMaterial.HasProperty("_LightBright"))
+            compositeBlitMaterial.SetColor("_LightBright", SimulationConfig.LightColorBright);
+    }
+
+    void ApplyOverlayMaterialSettings()
+    {
+        ApplyCompositeBlitSettings();
     }
 
     public static Vector3 GetTerrainLightDirection()
@@ -359,26 +377,20 @@ public class CellRenderer : MonoBehaviour
         return Mathf.Sign(value) * filteredMagnitude;
     }
 
-    void CreateOverlay()
+    void CreateOverlaySources()
     {
         int size = SimulationConfig.EnvirSize;
         overlayDownsampleFactor = Mathf.Max(1, SimulationConfig.OverlayDownsampleFactor);
         overlayTextureSize = Mathf.Max(1, size / overlayDownsampleFactor);
         overlayTexture = new Texture2D(overlayTextureSize, overlayTextureSize, TextureFormat.RGBA32, false);
-        overlayTexture.filterMode = FilterMode.Bilinear; // 虚化效果
+        overlayTexture.filterMode = FilterMode.Bilinear;
         overlayTexture.wrapMode = TextureWrapMode.Clamp;
         overlayPixels = new Color32[overlayTextureSize * overlayTextureSize];
 
-        Shader shader = Shader.Find("Custom/OverlayColorMap");
-        if (shader == null)
-        {
-            Debug.LogWarning("OverlayColorMap shader not found, falling back to Sprites/Default.");
-            shader = Shader.Find("Sprites/Default");
-        }
-        overlayMaterial = new Material(shader);
-        overlayMaterial.mainTexture = overlayTexture;
-        overlayMaterial.color = Color.white;
-        ApplyOverlayMaterialSettings();
+        chemicalOverlayTexture = new Texture2D(overlayTextureSize, overlayTextureSize, TextureFormat.RGBA32, false);
+        chemicalOverlayTexture.filterMode = FilterMode.Bilinear;
+        chemicalOverlayTexture.wrapMode = TextureWrapMode.Clamp;
+        chemicalOverlayPixels = new Color32[overlayTextureSize * overlayTextureSize];
 
         float worldSize = size * SimulationConfig.PixelPerEnvir;
         overlayMesh = new Mesh();
@@ -400,22 +412,29 @@ public class CellRenderer : MonoBehaviour
         overlayMesh.RecalculateNormals();
     }
 
-    void CreateChemicalOverlay()
+    void CreateCompositeOverlay()
     {
-        int size = SimulationConfig.EnvirSize;
-        int factor = Mathf.Max(1, overlayDownsampleFactor);
-        int texSize = Mathf.Max(1, size / factor);
-        chemicalOverlayTexture = new Texture2D(texSize, texSize, TextureFormat.RGBA32, false);
-        chemicalOverlayTexture.filterMode = FilterMode.Bilinear;
-        chemicalOverlayTexture.wrapMode = TextureWrapMode.Clamp;
-        chemicalOverlayPixels = new Color32[texSize * texSize];
+        compositeOverlayTexture = new RenderTexture(overlayTextureSize, overlayTextureSize, 0, RenderTextureFormat.ARGB32);
+        compositeOverlayTexture.filterMode = FilterMode.Bilinear;
+        compositeOverlayTexture.wrapMode = TextureWrapMode.Clamp;
+        compositeOverlayTexture.Create();
 
-        Shader shader = Shader.Find("Sprites/Default");
-        if (shader == null)
-            shader = Shader.Find("Unlit/Transparent");
-        chemicalOverlayMaterial = new Material(shader);
-        chemicalOverlayMaterial.mainTexture = chemicalOverlayTexture;
-        chemicalOverlayMaterial.color = Color.white;
+        Shader blitShader = Shader.Find("Custom/OverlayComposite");
+        if (blitShader == null)
+        {
+            Debug.LogWarning("OverlayComposite shader not found, falling back to OverlayColorMap.");
+            blitShader = Shader.Find("Custom/OverlayColorMap");
+        }
+        compositeBlitMaterial = new Material(blitShader);
+
+        Shader displayShader = Shader.Find("Sprites/Default");
+        if (displayShader == null)
+            displayShader = Shader.Find("Unlit/Transparent");
+        compositeDisplayMaterial = new Material(displayShader);
+        compositeDisplayMaterial.mainTexture = compositeOverlayTexture;
+        compositeDisplayMaterial.color = Color.white;
+
+        ApplyCompositeBlitSettings();
     }
 
     void UpdateBackgroundTexture()
@@ -668,10 +687,9 @@ public class CellRenderer : MonoBehaviour
 
         overlayTexture.SetPixels32(overlayPixels);
         overlayTexture.Apply();
-        overlayDirty = false;
     }
 
-    void UpdateChemicalOverlayTexture()
+    void UpdateChemicalSourceTexture()
     {
         if (SimulationCore.EnvirData == null)
             return;
@@ -741,8 +759,51 @@ public class CellRenderer : MonoBehaviour
 
         chemicalOverlayTexture.SetPixels32(chemicalOverlayPixels);
         chemicalOverlayTexture.Apply();
-        chemicalOverlayDirty = false;
         lastChemicalOverlayMask = mask;
+    }
+
+    void CompositeOverlayOnGpu()
+    {
+        if (compositeBlitMaterial == null || compositeOverlayTexture == null)
+            return;
+
+        compositeBlitMaterial.SetTexture("_TempLightTex", overlayTexture);
+        compositeBlitMaterial.SetTexture("_ChemTex", chemicalOverlayTexture);
+        ApplyCompositeBlitSettings();
+
+        RenderTexture previous = RenderTexture.active;
+        Graphics.Blit(Texture2D.whiteTexture, compositeOverlayTexture, compositeBlitMaterial);
+        RenderTexture.active = previous;
+        overlayDirty = false;
+    }
+
+    void UpdateCombinedOverlay()
+    {
+        bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
+        bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
+        bool showChem = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0
+            && ChemistrySystem.ChemicalOverlayMask != 0;
+
+        if (showTemp || showLight)
+            UpdateOverlayTexture();
+        if (showChem)
+            UpdateChemicalSourceTexture();
+        else
+            ClearChemicalSourceTexture();
+
+        CompositeOverlayOnGpu();
+    }
+
+    void ClearChemicalSourceTexture()
+    {
+        if (chemicalOverlayPixels == null || chemicalOverlayTexture == null)
+            return;
+
+        for (int i = 0; i < chemicalOverlayPixels.Length; i++)
+            chemicalOverlayPixels[i] = new Color32(0, 0, 0, 0);
+
+        chemicalOverlayTexture.SetPixels32(chemicalOverlayPixels);
+        chemicalOverlayTexture.Apply();
     }
 
     void LateUpdate()
@@ -770,16 +831,25 @@ public class CellRenderer : MonoBehaviour
         if (bgMesh != null && bgMaterial != null)
             Graphics.DrawMesh(bgMesh, Matrix4x4.identity, bgMaterial, 0);
 
-        // 温度/光照模式：渲染半透明叠加层
-        bool showTempLight = (currentOverlayViewMode & (OverlayViewMode.Temperature | OverlayViewMode.Light)) != 0;
-        if (showTempLight)
+        // 叠加层：多视图在 GPU 合成一张图后统一渲染
+        bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
+        bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
+        bool showChem = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0
+            && ChemistrySystem.ChemicalOverlayMask != 0;
+        bool showAnyOverlay = showTemp || showLight || showChem;
+
+        if (showAnyOverlay)
         {
             if (currentOverlayViewMode != lastOverlayViewMode)
             {
                 overlayDirty = true;
                 lastOverlayViewMode = currentOverlayViewMode;
             }
-            ApplyOverlayMaterialSettings();
+
+            int currentMask = ChemistrySystem.ChemicalOverlayMask;
+            if (currentMask != lastChemicalOverlayMask)
+                overlayDirty = true;
+
             long currentStep = SimulationCore.GetResearchStepCounter();
             int stepInterval = Mathf.Max(1, SimulationConfig.OverlayUpdateStepInterval);
             float minInterval = Mathf.Max(0f, SimulationConfig.OverlayUpdateMinIntervalSeconds);
@@ -789,51 +859,28 @@ public class CellRenderer : MonoBehaviour
                 lastOverlayStep = currentStep;
             }
 
-            float now = Time.realtimeSinceStartup;
-            if (overlayDirty && (minInterval <= 0f || now - lastOverlayUpdateTime >= minInterval))
-            {
-                UpdateOverlayTexture();
-                lastOverlayUpdateTime = now;
-            }
-            if (overlayMesh != null && overlayMaterial != null)
-                Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, overlayMaterial, 0);
-        }
-
-        // 化学物质叠加层：可与温度/光照叠加显示
-        bool showChemical = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0;
-        if (showChemical)
-        {
-            int currentMask = ChemistrySystem.ChemicalOverlayMask;
-            if (currentMask != lastChemicalOverlayMask)
-                chemicalOverlayDirty = true;
-
             long currentRevision = ChemistrySystem.GetChemicalRevision();
-            float minInterval = Mathf.Max(0f, SimulationConfig.OverlayUpdateMinIntervalSeconds);
             if (currentRevision != lastChemicalOverlayRevision)
             {
-                chemicalOverlayDirty = true;
+                overlayDirty = true;
                 lastChemicalOverlayRevision = currentRevision;
             }
 
             float now = Time.realtimeSinceStartup;
-            if (chemicalOverlayDirty && (minInterval <= 0f || now - lastChemicalOverlayUpdateTime >= minInterval))
+            if (overlayDirty && (minInterval <= 0f || now - lastOverlayUpdateTime >= minInterval))
             {
-                UpdateChemicalOverlayTexture();
-                lastChemicalOverlayUpdateTime = now;
+                UpdateCombinedOverlay();
+                lastOverlayUpdateTime = now;
             }
 
-            if (overlayMesh != null && chemicalOverlayMaterial != null && currentMask != 0)
-                Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, chemicalOverlayMaterial, 0);
+            if (overlayMesh != null && compositeDisplayMaterial != null)
+                Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, compositeDisplayMaterial, 0);
         }
         else
         {
+            lastOverlayViewMode = OverlayViewMode.None;
             lastChemicalOverlayMask = 0;
             lastChemicalOverlayRevision = -1;
-        }
-
-        if (!showTempLight && !showChemical)
-        {
-            lastOverlayViewMode = OverlayViewMode.None;
         }
 
         int minX, maxX, minY, maxY;

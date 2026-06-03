@@ -363,7 +363,7 @@ public static class SaveSystem
                 }
                 else
                 {
-                    ChemistrySystem.ApplyBaselineForTopography(env);
+                    env.EnsureChemicalCapacity(ChemistrySystem.SubstanceCount);
                 }
 
                 envirData[x, y] = env;

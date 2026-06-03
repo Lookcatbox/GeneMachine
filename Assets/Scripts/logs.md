@@ -1,5 +1,82 @@
 # 修改日志
 
+## 2026-06-04 去掉环境物质源、GPU 叠加合成、装置范围按类型
+
+### 修改文件
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 移除世界初始化时的 `SeedEnvironmentBaselines`，环境格不再自动获得地形基准化学量。
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 删除 `SeedEnvironmentBaselines` / `ApplyBaselineForTopography`；JSON 中 baseline 字段仅保留配置用途，不再作为环境源。
+
+#### Assets/Scripts/Core/SaveSystem.cs
+- v1 读档改为初始化空化学量数组，不再回填地形基准。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 温度/光照/化学叠加改为：CPU 写入源纹理 → `OverlayComposite` shader 在 GPU 合成一张 RenderTexture → 单次 DrawMesh 渲染。
+
+#### Assets/Shaders/OverlayComposite.shader
+- 新增叠加合成 shader：解码温度/光照层并与化学层 alpha 合成。
+
+#### Assets/Scripts/Core/DeviceSystem.cs
+- 装置范围改为各 `DeviceType.Range` 属性（种子仓/科研装置分别定义）；效果与覆盖计算统一走 `GetDeviceRange`。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 移除 `DeviceSeedStorageRange`、`DeviceResearchStationRange` 全局固定半径。
+
+## 2026-06-04 修复化学量后期停滞
+
+### 修改文件
+
+#### Assets/Scripts/Core/ChemistrySystem.cs
+- 撤回“每回合基线恢复”的处理，避免人为引入新的空间源项。
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 将每步顺序由“扩散 → 化学反应”调整为“化学反应 → 扩散”，确保每回合结束时化学物质量已经经过扩散写回。
+- 修复观察到的“地图仍不均匀，但每格显示值不再变化”问题：此前观测的是反应后的状态，局部反应可能抵消刚发生的扩散变化。
+
+## 2026-06-03 事件系统与事件页签
+
+### 新增文件
+
+#### Assets/Scripts/Core/EventSystem.cs
+- 事件类型含 typeId、发生条件（每回合 `random % 100 == 0` 即 1%）、工厂创建实例。
+- 活跃事件列表：每回合检查触发 → 分配 instanceId → 执行 → 移除 `IsFinished` 实例。
+- `TypeLocalWarming` / `TypeLocalCooling`：随机中心格、欧拉距离 20 内，50 回合 ±10°C 后 50 回合反向恢复。
+
+#### Assets/Scripts/Core/EventsPlayerPanelTab.cs
+- 玩家面板「事件」页签，滚动列表展示活跃事件标题与详情。
+
+### 修改文件
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- `InitWorld` / 读档启动时 `EventSystem.Init()`；新游戏额外 `ResetRuntimeState()`。
+- `SimulateOneStep` 在环境反应后调用 `EventSystem.Update`。
+
+#### Assets/Scripts/Core/MainManager.cs
+- 注册 `EventsPlayerPanelTab`。
+
+#### CodeMenu.md
+- 登记事件系统与事件页签。
+
+## 2026-06-03 基因突变概率二维表
+
+### 新增文件
+
+#### Assets/Scripts/Core/GeneMutationTable.cs
+- 用 `mutationWeights[i, j]` 二维表存储突变权重；hashId 映射稠密下标后 O(1) 查表。
+- 初始化时 `FillTemporaryDefaultWeights` 临时填入 20/10，运行时只读二维表；支持 `SetMutationWeight` 逐格修改。
+- `TryRollMutationTarget` 按行权重和加权抽样：P(i→j)=weight[i,j]/Σ_k weight[i,k]。
+
+### 修改文件
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 世界初始化与读档启动时调用 `GeneMutationTable.Init()`。
+
+#### CodeMenu.md
+- 登记基因突变表。
+
 ## 2026-06-03 修复化学反应 ThreadAbortException
 
 ### 修改文件

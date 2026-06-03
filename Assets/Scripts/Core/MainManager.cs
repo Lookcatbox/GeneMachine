@@ -175,6 +175,7 @@ public class MainManager : MonoBehaviour
         RegisterPlayerPanelTab(new DevicePlayerPanelTab());
         RegisterPlayerPanelTab(new GenePlayerPanelTab());
         RegisterPlayerPanelTab(new ResearchPlayerPanelTab());
+        RegisterPlayerPanelTab(new EventsPlayerPanelTab());
         RegisterPlayerPanelTab(new PopulationPlayerPanelTab());
         activePlayerPanelTabIndex = Mathf.Clamp(activePlayerPanelTabIndex, 0, Mathf.Max(0, playerPanelTabCount - 1));
     }

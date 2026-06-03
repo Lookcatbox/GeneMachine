@@ -144,9 +144,7 @@ public static class SimulationConfig
     // 装置系统
     public static int DeviceSeedStorageTypeId = 1;
     public static int DeviceSeedStorageInitialCount = 1;
-    public static int DeviceSeedStorageRange = 10; // 欧拉距离半径
     public static int DeviceResearchStationTypeId = 2;
-    public static int DeviceResearchStationRange = 10; // 欧拉距离半径
     public static int DeviceResearchStationCraftLimit = 3;
     public static int DeviceResearchStationCraftMax = 3; // 科研装置制造上限
     public static int DeviceDefaultCraftMax = 3; // 可制作装置默认制造上限（0=不限）

@@ -26,6 +26,9 @@ public struct DeviceInstance
 
 public static class DeviceSystem
 {
+    private const int SeedStorageRange = 10;
+    private const int ResearchStationRange = 10;
+
     private static bool initialized;
     private static int nextDeviceId = 1;
     private static readonly List<DeviceType> typeList = new List<DeviceType>();
@@ -273,7 +276,7 @@ public static class DeviceSystem
             Description = "放置后在半径内的每格增加一个玩家细胞。",
             Craftable = false,
             CraftMax = 0,
-            Range = SimulationConfig.DeviceSeedStorageRange,
+            Range = SeedStorageRange,
             IconResource = "Devices/seed_bank_icon",
             PreviewResource = "Devices/seed_bank_preview"
         };
@@ -293,7 +296,7 @@ public static class DeviceSystem
             Description = "覆盖范围内的每个存活细胞提供研发点，重叠范围只计一次。",
             Craftable = true,
             CraftMax = SimulationConfig.DeviceResearchStationCraftMax,
-            Range = SimulationConfig.DeviceResearchStationRange,
+            Range = ResearchStationRange,
             IconResource = "Devices/research_lab_icon",
             PreviewResource = "Devices/research_lab_preview"
         };
@@ -312,7 +315,7 @@ public static class DeviceSystem
 
     private static void ApplySeedStorageEffect(int centerX, int centerY)
     {
-        int range = Mathf.Max(0, SimulationConfig.DeviceSeedStorageRange);
+        int range = Mathf.Max(0, GetDeviceRange(SimulationConfig.DeviceSeedStorageTypeId));
         int rangeSq = range * range;
         for (int dx = -range; dx <= range; dx++)
         {
@@ -347,11 +350,6 @@ public static class DeviceSystem
         researchCoverageIndices.Clear();
         researchCoverageSet.Clear();
 
-        int range = Mathf.Max(0, SimulationConfig.DeviceResearchStationRange);
-        if (range <= 0)
-            return;
-
-        int rangeSq = range * range;
         int size = SimulationConfig.EnvirSize;
         int stride = size + 2;
 
@@ -360,6 +358,11 @@ public static class DeviceSystem
             if (devices[i].TypeId != SimulationConfig.DeviceResearchStationTypeId)
                 continue;
 
+            int range = Mathf.Max(0, GetDeviceRange(devices[i].TypeId));
+            if (range <= 0)
+                continue;
+
+            int rangeSq = range * range;
             int centerX = devices[i].X;
             int centerY = devices[i].Y;
             for (int dx = -range; dx <= range; dx++)

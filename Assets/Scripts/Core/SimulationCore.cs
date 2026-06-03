@@ -77,7 +77,9 @@ public static class SimulationCore
         TerrainGenerator.Generate(EnvirData, SimulationConfig.WorldSeed);
         ChemistrySystem.Init();
         ChemistrySystem.ResetOverlayMask();
-        ChemistrySystem.SeedEnvironmentBaselines(EnvirData);
+        GeneMutationTable.Init();
+        EventSystem.Init();
+        EventSystem.ResetRuntimeState();
         BuildDistanceToLandField();
         RefreshEnvironmentClimateIfNeeded(true);
 
@@ -218,6 +220,8 @@ public static class SimulationCore
         }
 
         ChemistrySystem.Init();
+        GeneMutationTable.Init();
+        EventSystem.Init();
         isRunning = true;
         isPaused = false;
         simulationThread = new Thread(CalculationLoop);
@@ -310,8 +314,9 @@ public static class SimulationCore
     private static void SimulateOneStep()
     {
         LightUpdate.Update(EnvirData);
-        EnvironmentDiffusionSystem.Update(EnvirData);
         ChemistrySystem.ApplyEnvironmentReactions(EnvirData);
+        EnvironmentDiffusionSystem.Update(EnvirData);
+        EventSystem.Update(EnvirData);
 
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
         // 原Sort O(N log N) 在100万细胞时约占50%时间，移除后直接翻倍

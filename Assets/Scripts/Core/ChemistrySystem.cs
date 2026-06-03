@@ -180,37 +180,6 @@ public static class ChemistrySystem
     public static void ToggleChemicalOverlay(ChemicalSubstance substance) => ToggleChemicalOverlay((int)substance);
     public static bool IsChemicalOverlaySelected(ChemicalSubstance substance) => IsChemicalOverlaySelected((int)substance);
 
-    public static void SeedEnvironmentBaselines(Envir[,] envirData)
-    {
-        if (envirData == null)
-            return;
-
-        int size = SimulationConfig.EnvirSize;
-        for (int y = 1; y <= size; y++)
-        {
-            for (int x = 1; x <= size; x++)
-            {
-                Envir env = envirData[x, y];
-                if (env != null)
-                    ApplyBaselineForTopography(env);
-            }
-        }
-    }
-
-    public static void ApplyBaselineForTopography(Envir env)
-    {
-        if (env == null)
-            return;
-
-        env.EnsureChemicalCapacity(SubstanceCount);
-        bool isWater = env.Topography == 0 || env.Topography == 3 || env.Topography == 4;
-        for (int i = 0; i < SubstanceCount; i++)
-        {
-            ChemistrySubstanceRuntime substance = substances[i];
-            env.SetChemicalAmount(i, isWater ? substance.BaselineWater : substance.BaselineLand);
-        }
-    }
-
     public static void ApplyEnvironmentReactions(Envir[,] envirData)
     {
         if (!initialized || envirData == null || reactions == null || reactions.Length == 0)
