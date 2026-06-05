@@ -8,14 +8,18 @@ using UnityEngine;
 using Random = System.Random;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
+/// <summary>
+/// 后台线程驱动的世界模拟：InitWorld 分配格网并生成地形/化学基线；
+/// <see cref="SimulateOneStep"/> 顺序为光照→反应→扩散→事件→细胞行为→能量→研发。
+/// </summary>
 public static class SimulationCore
 {
     // ========== 世界数据 ==========
-    public static Envir[,] EnvirData;
-    public static List<Cell> AllCells = new List<Cell>();
-    public static Random Rng;
-    [ThreadStatic] public static Random ThreadRng;
-    public static int _rngSeedCounter;
+    public static Envir[,] EnvirData;           // 环境格二维数组，下标 [1..EnvirSize]
+    public static List<Cell> AllCells = new List<Cell>();  // 全图存活细胞扁平列表，O(N) 行为遍历用
+    public static Random Rng;                   // 主线程/初始化用 RNG
+    [ThreadStatic] public static Random ThreadRng;  // 模拟线程与子任务用
+    public static int _rngSeedCounter;          // 为各并行分区分配独立 RNG 种子
 
     // ========== 行为系统（各命名空间静态类） ==========
     // Multiply.Behavior, Temperature.Behavior, Light.Behavior, Death.Behavior
@@ -49,6 +53,7 @@ public static class SimulationCore
     public static readonly int[] DX = { -1, -1, -1, 0, 0, 1, 1, 1 };
     public static readonly int[] DY = { -1, 0, 1, -1, 1, -1, 0, 1 };
 
+    /// <summary>分配世界格、生成地形、播种化学与细胞，并初始化各行为表（仅新游戏）。</summary>
     public static void InitWorld()
     {
         Rng = new Random(SimulationConfig.WorldSeed);
@@ -64,18 +69,22 @@ public static class SimulationCore
         totalSteps = 0;
         playSeconds = 0;
         int size = SimulationConfig.EnvirSize;
+        ChemistrySystem.Init();
+        ChemistryField.Allocate(size, ChemistrySystem.SubstanceCount);
+        // 分配 (size+2)² 个 Envir 对象；400 万格时内存与初始化耗时显著，但仅开局一次
         EnvirData = new Envir[size + 2, size + 2];
         for (int x = 1; x <= size; x++)
         {
             for (int y = 1; y <= size; y++)
             {
-                EnvirData[x, y] = new Envir();
+                Envir env = new Envir();
+                env.SetPosition(x, y);
+                EnvirData[x, y] = env;
             }
         }
         AllCells.Clear();
         // 生成地形（柏林噪声 + 侵蚀 + 河流）
         TerrainGenerator.Generate(EnvirData, SimulationConfig.WorldSeed);
-        ChemistrySystem.Init();
         ChemistrySystem.ResetOverlayMask();
         ChemistrySystem.SeedEnvironmentBaselines(EnvirData);
         GeneMutationTable.Init();
@@ -199,6 +208,7 @@ public static class SimulationCore
         aliveCellCount = AllCells.Count;
     }
 
+    /// <summary>新游戏：InitWorld 后启动后台模拟线程。</summary>
     public static void StartCalculationThread()
     {
         if (isRunning) return;
@@ -211,6 +221,7 @@ public static class SimulationCore
         simulationThread.Start();
     }
 
+    /// <summary>读档后启动线程（世界数据已由 SaveSystem 填充，不再 InitWorld）。</summary>
     public static void StartCalculationThreadFromLoadedWorld()
     {
         if (isRunning) return;
@@ -221,6 +232,7 @@ public static class SimulationCore
         }
 
         ChemistrySystem.Init();
+        ChemistryField.EnsureAllocatedFromEnvirData(EnvirData);
         GeneMutationTable.Init();
         EventSystem.Init();
         isRunning = true;
@@ -250,6 +262,7 @@ public static class SimulationCore
 
     private static void CalculationLoop()
     {
+        // 独立后台线程驱动模拟；SimulateOneStep 内部再 Parallel，避免与 Unity 主线程争用
         ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
         timer.Reset();
         timer.Start();
@@ -314,11 +327,20 @@ public static class SimulationCore
 
     private static void SimulateOneStep()
     {
+        // --- 环境场（均 O(EnvirSize²)，在后台模拟线程执行）---
+        // LightUpdate: O(cells × noiseOctaves × 3 Perlin)
         LightUpdate.Update(EnvirData);
+        long chemistryStep = researchStepCounter + 1;
+        ChemicalStepAudit.BeginChemistryStep(chemistryStep);
+        // 化学反应: O(cells × reactions)，每格串行尝试所有反应；曾测单线程约 10s/步，现按行并行
         ChemistrySystem.ApplyEnvironmentReactions(EnvirData);
+        // 扩散: O(cells × (1 + diffusibleSubstances))，每种物质 3 遍网格扫描
         EnvironmentDiffusionSystem.Update(EnvirData);
+        ChemicalStepAudit.EndChemistryStep(chemistryStep);
+        // 事件: O(activeEvents × affectedCells)，活跃事件少时可忽略
         EventSystem.Update(EnvirData);
 
+        // --- 细胞行为（O(N)，N=AllCells.Count）---
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
         // 原Sort O(N log N) 在100万细胞时约占50%时间，移除后直接翻倍
 
@@ -333,7 +355,7 @@ public static class SimulationCore
         Light.Behavior.Apply();
         Death.Behavior.Apply();
 
-        // 能量消耗并行执行
+        // 能量消耗 O(N)；GetTotalEnergyCost 有基因缓存，避免每步重算整表
         var allCells = AllCells;
         int count = allCells.Count;
         if (count > 0)
@@ -418,6 +440,7 @@ public static class SimulationCore
 
     private static void BuildDistanceToLandField()
     {
+        // 开局一次 BFS，O(EnvirSize²)；结果供气候场查询距陆距离，避免每格实时搜索
         int size = SimulationConfig.EnvirSize;
         int stride = size + 2;
         distanceToLand = new int[stride, stride];
@@ -472,6 +495,7 @@ public static class SimulationCore
 
     private static void UpdateEnvironmentClimate(Vector3 sunDirection)
     {
+        // 仅在光照方向变化时调用（非每步）；仍 O(EnvirSize² × smoothingPasses)
         int size = SimulationConfig.EnvirSize;
         float invAltitudeRange = 1f / Mathf.Max(1f, SimulationConfig.AltitudeMax - SimulationConfig.AltitudeMin);
         float[,] temperatureField = new float[size + 2, size + 2];
@@ -577,6 +601,7 @@ public static class SimulationCore
 
             for (int pass = 0; pass < smoothingPasses; pass++)
             {
+                // 每轮平滑再扫一遍全图；passes 增大时开销线性增加
                 Parallel.For(1, size + 1, y =>
                 {
                     int yDown = y == 1 ? size : y - 1;
@@ -658,11 +683,13 @@ public static class SimulationCore
             AllCells.RemoveRange(writeIdx, AllCells.Count - writeIdx);
     }
 
+    /// <summary>坐标是否在有效环境格范围 [1, EnvirSize]。</summary>
     public static bool InBounds(int x, int y)
     {
         return x >= 1 && x <= SimulationConfig.EnvirSize && y >= 1 && y <= SimulationConfig.EnvirSize;
     }
 
+    /// <summary>八邻域环境格上的细胞总数（用于拥挤基因等）。</summary>
     public static int GetNeighborCellCount(int px, int py)
     {
         int count = 0;
@@ -679,6 +706,7 @@ public static class SimulationCore
     public static void PauseSimulation() { isPaused = true; }
     public static void ResumeSimulation() { isPaused = false; }
     public static bool IsPaused() { return isPaused; }
+    /// <summary>并行 Pre/Apply 与事件逻辑使用的线程本地 RNG。</summary>
     public static Random EnsureThreadRng()
     {
         if (ThreadRng == null)
@@ -697,6 +725,7 @@ public static class SimulationCore
         simulationThread?.Join(2000);
     }
 
+    /// <summary>每步基础研发点 + 科研装置覆盖格加成。</summary>
     public static void GainResearchPoints()
     {
         int baseGain = Math.Max(0, SimulationConfig.ResearchBaseGainPerStep);
@@ -766,11 +795,13 @@ public static class SimulationCore
         playSeconds += delta;
     }
 
+    /// <summary>摄氏转内部温度存储（+ KelvinOffset）。</summary>
     public static float CelsiusToKelvin(float tempC)
     {
         return tempC + SimulationConfig.KelvinOffset;
     }
 
+    /// <summary>内部温度存储转摄氏显示。</summary>
     public static float KelvinToCelsius(float tempK)
     {
         return tempK - SimulationConfig.KelvinOffset;
@@ -880,6 +911,7 @@ public static class SimulationCore
         }
     }
 
+    /// <summary>获取环境格引用；越界返回 null。</summary>
     public static Envir GetEnvir(int x, int y)
     {
         if (!InBounds(x, y)) return null;

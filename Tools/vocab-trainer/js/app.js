@@ -157,7 +157,7 @@ function startStudy(mode) {
   $('#study-report').classList.add('hidden');
   $('#question-area').innerHTML = '';
 
-  setLoading(true, 'AI 正在用 v4-pro Max Thinking 生成题目与图示…');
+  setLoading(true, 'AI 正在生成题目…');
 
   studySession = new StudySession({
     onProgress: (done, total) => {
@@ -205,7 +205,7 @@ $('#btn-start-agent').addEventListener('click', () => {
   $('#agent-active').classList.remove('hidden');
   $('#agent-report').classList.add('hidden');
   $('#agent-question-area').innerHTML = '';
-  setLoading(true, 'Agent 正在用 v4-pro Max Thinking 生成训练题…');
+  setLoading(true, 'Agent 正在生成训练题…');
 
   agentSession = new AgentSession({
     onProgress: (done, total) => {
@@ -295,7 +295,7 @@ $('#btn-test-api').addEventListener('click', async () => {
     $('#api-test-result').textContent = '✓ 普通模型连接成功';
     try {
       await testDiagramConnection();
-      $('#api-test-result').textContent += ' · ✓ 图示模型 (v4-pro Max Thinking) 可用';
+      $('#api-test-result').textContent += ' · ✓ 图示模型 (v4-pro Thinking High) 可用';
     } catch (e2) {
       $('#api-test-result').textContent += ` · 图示模型失败: ${e2.message}`;
     }

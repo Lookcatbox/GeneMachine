@@ -1,9 +1,12 @@
 // Envir.cs - 环境格数据类
 using System;
 
+/// <summary>单个地图格：气候、地形、细胞列表与各化学物质存量。</summary>
 [Serializable]
 public class Envir
 {
+    public int X;                 // 环境格 x 坐标（用于 ChemistryField SoA 索引）
+    public int Y;                 // 环境格 y 坐标
     public float Temp;            // 温度
     public int Light;             // 光照强度
     public int CellNum;           // 当前细胞数量
@@ -15,7 +18,7 @@ public class Envir
 
     public Cell[] CellList;       // 该格中的细胞列表（下标从1开始）
 
-    public float[] ChemAmounts;   // 各化学物质存量（单位），下标对应 ChemistrySystem 运行时物质索引
+    public float[] ChemAmounts;   // 旧版/兜底存储；运行时主路径使用 ChemistryField SoA
 
     public Envir() : this(SimulationConfig.CellMaxNum)
     {
@@ -28,11 +31,21 @@ public class Envir
         CellNum = 0;
         Temp = SimulationConfig.DefaultTemp;
         Light = SimulationConfig.DefaultLight;
-        ChemAmounts = new float[Math.Max(0, ChemistrySystem.SubstanceCount)];
+        ChemAmounts = ChemistryField.IsAllocated ? null : new float[Math.Max(0, ChemistrySystem.SubstanceCount)];
     }
 
+    public void SetPosition(int x, int y)
+    {
+        X = x;
+        Y = y;
+    }
+
+    /// <summary>扩展旧版兜底数组；SoA 已分配时无需逐格数组。</summary>
     public void EnsureChemicalCapacity(int count)
     {
+        if (ChemistryField.IsAllocated && X > 0 && Y > 0)
+            return;
+
         if (count < 0)
             count = 0;
         if (ChemAmounts == null)
@@ -46,8 +59,12 @@ public class Envir
         Array.Resize(ref ChemAmounts, count);
     }
 
+    /// <summary>读取物质存量；下标无效返回 0。</summary>
     public float GetChemicalAmount(int substanceIndex)
     {
+        if (ChemistryField.IsAllocated && X > 0 && Y > 0)
+            return ChemistryField.GetAmount(X, Y, substanceIndex);
+
         if (ChemAmounts == null || substanceIndex < 0 || substanceIndex >= ChemAmounts.Length)
             return 0f;
         return ChemAmounts[substanceIndex];
@@ -58,8 +75,15 @@ public class Envir
         return GetChemicalAmount((int)substance);
     }
 
+    /// <summary>写入物质存量（负值钳制为 0）。</summary>
     public void SetChemicalAmount(int substanceIndex, float amount)
     {
+        if (ChemistryField.IsAllocated && X > 0 && Y > 0)
+        {
+            ChemistryField.SetAmount(X, Y, substanceIndex, amount);
+            return;
+        }
+
         EnsureChemicalCapacity(substanceIndex + 1);
         if (substanceIndex < 0 || substanceIndex >= ChemAmounts.Length)
             return;
@@ -71,8 +95,15 @@ public class Envir
         SetChemicalAmount((int)substance, amount);
     }
 
+    /// <summary>增减物质存量。</summary>
     public void AddChemicalAmount(int substanceIndex, float delta)
     {
+        if (ChemistryField.IsAllocated && X > 0 && Y > 0)
+        {
+            ChemistryField.AddAmount(X, Y, substanceIndex, delta);
+            return;
+        }
+
         SetChemicalAmount(substanceIndex, GetChemicalAmount(substanceIndex) + delta);
     }
 

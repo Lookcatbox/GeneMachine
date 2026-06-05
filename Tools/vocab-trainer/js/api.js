@@ -4,9 +4,9 @@
 
 import { loadSettings } from './storage.js';
 
-/** 图示生成固定使用 v4-pro + Max Thinking（不可在 UI 关闭） */
+/** 仅图示题补生成使用 v4-pro + Thinking High（不可在 UI 关闭） */
 export const DIAGRAM_MODEL = 'deepseek-v4-pro';
-export const DIAGRAM_REASONING_EFFORT = 'max';
+export const DIAGRAM_REASONING_EFFORT = 'high';
 
 export async function chatCompletion(messages, options = {}) {
   const {
@@ -42,7 +42,7 @@ export async function chatCompletion(messages, options = {}) {
 }
 
 /**
- * 生成含 diagram 的题目时专用：强制 deepseek-v4-pro + thinking enabled + reasoning max。
+ * 仅用于单独生成/补全 diagram 图示时：强制 deepseek-v4-pro + thinking enabled + reasoning high。
  */
 export async function diagramChatCompletion(messages, { jsonMode = true, temperature = 0.5, maxTokens = 16384 } = {}) {
   const settings = loadSettings();
@@ -116,5 +116,5 @@ export function parseJsonResponse(text) {
 }
 
 export function getDiagramModeLabel() {
-  return `${DIAGRAM_MODEL} · Thinking Max（图示生成固定）`;
+  return `${DIAGRAM_MODEL} · Thinking High（仅图示题）`;
 }

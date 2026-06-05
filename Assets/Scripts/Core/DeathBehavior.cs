@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace Death
 {
+    /// <summary>死亡行为：寿命、拥挤与环境致死判定（扳机 1–4）。</summary>
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针
@@ -108,6 +109,7 @@ namespace Death
 
         public static void PreParallel()
         {
+            // O(N × triggers × genes)；与 Temperature/Light/Death 并行 Pre 时由 Parallel.Invoke 调度
             var allCells = SimulationCore.AllCells;
             int count = allCells.Count;
 

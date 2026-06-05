@@ -42,8 +42,8 @@ export class AgentSession {
     this.onStatus(`Agent 正在为「${topic}」生成 ${count} 道题…`);
 
     try {
-      const content = await diagramChatCompletion([
-        { role: 'system', content: '你是全能学习教练，只输出合法 JSON。带 diagram 的题必须完整可用，电路题优先用 template。' },
+      const content = await chatCompletion([
+        { role: 'system', content: '你是全能学习教练，只输出合法 JSON。' },
         { role: 'user', content: buildAgentQuestionsPrompt(topic, count, difficulty) },
       ]);
       const data = parseJsonResponse(content);
@@ -57,7 +57,7 @@ export class AgentSession {
 
       const minDiagrams = Math.max(1, Math.ceil(count * 0.3));
       if (countDiagramQuestions(this.queue) < minDiagrams) {
-        this.onStatus('图示题不足，正在补生成…');
+        this.onStatus('图示题不足，正在用 v4-pro Thinking High 补生成…');
         await this.supplementDiagrams(topic, minDiagrams - countDiagramQuestions(this.queue));
       }
 
@@ -179,8 +179,8 @@ export class AgentSession {
 
   async generateWeakExtras() {
     try {
-      const content = await diagramChatCompletion([
-        { role: 'system', content: '你是全能学习教练，只输出合法 JSON。若含 diagram 必须完整。' },
+      const content = await chatCompletion([
+        { role: 'system', content: '你是全能学习教练，只输出合法 JSON。' },
         { role: 'user', content: buildAgentWeakPrompt(this.topic, this.weakTags) },
       ]);
       const data = parseJsonResponse(content);

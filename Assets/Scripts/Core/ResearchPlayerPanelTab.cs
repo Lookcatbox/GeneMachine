@@ -1,5 +1,7 @@
+// ResearchPlayerPanelTab.cs - 玩家面板「研发」页：研发点、科技树与温度升级
 using UnityEngine;
 
+/// <summary>研发点显示、科技树节点悬停说明与温度耐受升级入口。</summary>
 public class ResearchPlayerPanelTab : PlayerPanelTabPage
 {
     private bool showUpgradePopup = false;

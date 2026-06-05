@@ -1,5 +1,9 @@
+// SimulationRenderSettingsData.cs - 可序列化渲染配置，与 SimulationConfig 双向同步
 using UnityEngine;
 
+/// <summary>
+/// 运行时/Inspector 中的渲染参数副本；修改后通过 <see cref="ApplyToSimulationConfig"/> 写回全局配置并刷新 CellRenderer。
+/// </summary>
 [System.Serializable]
 public class SimulationRenderSettingsData
 {
@@ -57,6 +61,7 @@ public class SimulationRenderSettingsData
     [Header("叠加层")]
     [Range(0f, 1f)] public float overlayAlpha = SimulationConfig.OverlayAlpha;
 
+    /// <summary>从当前 SimulationConfig 拷贝全部渲染相关字段。</summary>
     public void CopyFromSimulationConfig()
     {
         terrainColorOcean = SimulationConfig.TerrainColorOcean;
@@ -106,6 +111,7 @@ public class SimulationRenderSettingsData
         overlayAlpha = SimulationConfig.OverlayAlpha;
     }
 
+    /// <summary>计算本对象渲染字段的哈希，用于检测 Inspector 是否被外部修改。</summary>
     public int ComputeHash()
     {
         return ComputeHash(
@@ -151,6 +157,7 @@ public class SimulationRenderSettingsData
             overlayAlpha);
     }
 
+    /// <summary>计算当前 SimulationConfig 渲染字段的哈希。</summary>
     public static int ComputeSimulationConfigHash()
     {
         return ComputeHash(
@@ -285,6 +292,7 @@ public class SimulationRenderSettingsData
         }
     }
 
+    /// <summary>将本对象写回 SimulationConfig 并触发地形/叠加层刷新。</summary>
     public void ApplyToSimulationConfig()
     {
         SimulationConfig.TerrainColorOcean = terrainColorOcean;

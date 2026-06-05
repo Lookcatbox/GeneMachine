@@ -1,15 +1,16 @@
 // CameraController.cs - 相机平移和缩放控制
 using UnityEngine;
 
+/// <summary>正交相机：滚轮缩放、右键/中键拖拽与 WASD 平移，随窗口更新 aspect。</summary>
 public class CameraController : MonoBehaviour
 {
     [Header("缩放设置")]
-    public float zoomSpeed = 5f;
-    public float minOrthoSize = 2f;
-    public float maxOrthoSize = 600f;
+    public float zoomSpeed = 5f;       // 滚轮缩放灵敏度
+    public float minOrthoSize = 2f;    // 最近缩放（视野最小）
+    public float maxOrthoSize = 600f;  // 最远缩放（可俯瞰全图）
 
     [Header("平移设置")]
-    public float panSpeed = 10f;
+    public float panSpeed = 10f;       // 拖拽/键盘平移速度
 
     private Camera cam;
     private Vector3 lastMousePos;

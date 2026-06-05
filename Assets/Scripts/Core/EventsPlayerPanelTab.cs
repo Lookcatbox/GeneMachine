@@ -1,5 +1,7 @@
+// EventsPlayerPanelTab.cs - 玩家面板「事件」页：活跃环境事件列表
 using UnityEngine;
 
+/// <summary>滚动展示 <see cref="EventSystem"/> 当前活跃事件快照。</summary>
 public class EventsPlayerPanelTab : PlayerPanelTabPage
 {
     Vector2 scrollPosition;

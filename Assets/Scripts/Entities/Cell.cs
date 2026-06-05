@@ -1,6 +1,7 @@
 // Cell.cs - 细胞数据类
 using System;
 
+/// <summary>单个生物个体：位置、能量、基因槽与能量消耗缓存。</summary>
 [Serializable]
 public class Cell
 {
@@ -28,6 +29,7 @@ public class Cell
 
     public void InvalidateEnergyCostCache() { _energyCostCache = -1; }
 
+    /// <summary>主干+自由基因每回合能量消耗之和（带缓存）。</summary>
     public int GetTotalEnergyCost()
     {
         if (_energyCostCache >= 0) return _energyCostCache;

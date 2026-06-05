@@ -1,6 +1,8 @@
+// GenePlayerPanelTab.cs - 玩家面板「基因」页：基因视图筛选与全图基因统计
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>基因列表与 <see cref="CellRenderer.geneFilterBaseId"/> 筛选控制。</summary>
 public class GenePlayerPanelTab : PlayerPanelTabPage
 {
     public GenePlayerPanelTab() : base("基因")

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Temperature
 {
+    /// <summary>温度行为：耐受区间判定与区间外能量奖惩。</summary>
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针

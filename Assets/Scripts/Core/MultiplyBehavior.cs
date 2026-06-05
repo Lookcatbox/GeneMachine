@@ -16,6 +16,7 @@ namespace Multiply
         public int priority;
     }
 
+    /// <summary>繁殖行为：扳机表驱动 Pre（并行收集）与 Apply（排序后生成子代）。</summary>
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针
@@ -101,6 +102,7 @@ namespace Multiply
 
         // ============================================================
         // PreParallel：并行版Pre，线程本地缓冲 + ConcurrentBag合并
+        // O(N × genesPerCell)；ConcurrentBag.ToArray 合并有少量分配，但避免全局锁
         // ============================================================
         public static void PreParallel()
         {
@@ -163,6 +165,7 @@ namespace Multiply
 
         // ============================================================
         // Apply阶段：按优先级排序缓冲区，依次执行繁殖
+        // Buffer.Sort 为 O(M log M)，M=本步繁殖命令数；通常 M << N
         // ============================================================
         public static void Apply()
         {

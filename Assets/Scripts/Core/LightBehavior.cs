@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Light
 {
+    /// <summary>光照行为：光合作用产能等与 <see cref="Envir.Light"/> 交互。</summary>
     public static class Behavior
     {
         // ActionTable[扳机位, 基因id] = 该基因在该扳机处的行为实现函数指针

@@ -1,14 +1,17 @@
+// EventSystem.cs - 随机环境事件：触发条件、活跃实例与每步执行
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using UnityEngine;
 using Random = System.Random;
 
+/// <summary>全局事件调度：每回合检定触发、执行活跃事件、移除已结束实例。</summary>
 public static class EventSystem
 {
-    public const int TypeLocalWarming = 1;
-    public const int TypeLocalCooling = 2;
+    public const int TypeLocalWarming = 1;  // 局部升温事件类型 id
+    public const int TypeLocalCooling = 2;  // 局部降温事件类型 id
 
+    /// <summary>UI 用活跃事件只读快照。</summary>
     public struct ActiveEventSnapshot
     {
         public int instanceId;
@@ -35,6 +38,7 @@ public static class EventSystem
     static int nextInstanceId = 1;
     static bool initialized;
 
+    /// <summary>注册事件类型定义（幂等）。</summary>
     public static void Init()
     {
         if (initialized)
@@ -55,11 +59,14 @@ public static class EventSystem
         }
     }
 
+    /// <summary>每模拟步：检定新触发、执行活跃事件、移除已结束实例。</summary>
     public static void Update(Envir[,] envirData)
     {
         if (!initialized || envirData == null)
             return;
 
+        // 全程持锁：触发检测 + 执行 + 清理。活跃事件数量通常很小，不是每步主瓶颈。
+        // LocalTemperatureEvent 在构造时已预计算影响格列表，Execute 为 O(affectedCells) 而非每回合扫描半径。
         Random rng = SimulationCore.EnsureThreadRng();
 
         lock (activeLock)
@@ -177,6 +184,7 @@ sealed class LocalTemperatureEventInstance : ActiveEventInstance
         this.centerX = centerX;
         this.centerY = centerY;
         this.warmingFirst = warmingFirst;
+        // 构造时一次性扫描半径内格点（≈1257 格），避免每回合重复距离判断
         BuildAffectedCells(centerX, centerY, Radius, out affectedX, out affectedY);
     }
 

@@ -1,6 +1,7 @@
 // Species.cs - 物种定义，管理基因初始化
 using System;
 
+/// <summary>为玩家/NPC 细胞填充默认基因组合。</summary>
 public class Species
 {
     /// <summary>

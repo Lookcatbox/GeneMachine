@@ -54,8 +54,8 @@ export class StudySession {
     this.phase = 'generating';
 
     try {
-      const content = await diagramChatCompletion([
-        { role: 'system', content: '你是英语词汇教练，只输出合法 JSON。带 diagram 的题必须完整可用。' },
+      const content = await chatCompletion([
+        { role: 'system', content: '你是英语词汇教练，只输出合法 JSON。' },
         { role: 'user', content: buildWordQuestionsPrompt(words) },
       ]);
       const data = parseJsonResponse(content);
@@ -93,7 +93,7 @@ export class StudySession {
     });
     if (!wordsMissing.length) return;
 
-    this.onStatus(`补生成 ${wordsMissing.length} 个单词的图示题…`);
+    this.onStatus(`补生成 ${wordsMissing.length} 个单词的图示题（v4-pro Thinking High）…`);
     try {
       const content = await diagramChatCompletion([
         { role: 'system', content: '你是英语词汇教练，只输出合法 JSON。diagram 必须非空且布局完整。' },
@@ -210,8 +210,8 @@ export class StudySession {
   async generateWeakExtras() {
     try {
       for (const stats of this.weakWords) {
-        const content = await diagramChatCompletion([
-          { role: 'system', content: '你是英语词汇教练，只输出合法 JSON。若含 diagram 必须完整。' },
+        const content = await chatCompletion([
+          { role: 'system', content: '你是英语词汇教练，只输出合法 JSON。' },
           {
             role: 'user',
             content: buildWeakWordExtraPrompt(stats.word, [...stats.wrongTypes]),

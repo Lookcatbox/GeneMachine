@@ -1,29 +1,33 @@
+// DeviceSystem.cs - 装置类型注册、背包、放置、科研覆盖与存档状态
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>装置类型静态定义；<see cref="Range"/> 为欧拉距离作用半径（按类型配置，非全局常量）。</summary>
 public class DeviceType
 {
-    public int TypeId;
-    public string Name;
-    public string Description;
-    public bool Craftable;
-    public int CraftMax; // 制造上限，0 表示不限
-    public int Range;
-    public string IconResource;
-    public string PreviewResource;
-    public Texture2D Icon;
-    public Texture2D Preview;
+    public int TypeId;              // 装置类型唯一 id
+    public string Name;             // 显示名称
+    public string Description;      // 说明文本
+    public bool Craftable;          // 是否可用研发点制造
+    public int CraftMax;            // 制造上限，0 表示不限
+    public int Range;               // 放置后效果半径（欧拉距离）
+    public string IconResource;     // Resources 下图标路径
+    public string PreviewResource;  // 放置预览纹理路径
+    public Texture2D Icon;          // 运行时加载的图标
+    public Texture2D Preview;       // 运行时加载的预览图
 }
 
+/// <summary>已放置在地图上的装置实例。</summary>
 public struct DeviceInstance
 {
-    public int Id;
-    public int TypeId;
-    public int X;
+    public int Id;      // 实例唯一 id
+    public int TypeId;  // 对应 DeviceType.TypeId
+    public int X;       // 环境格坐标
     public int Y;
 }
 
+/// <summary>装置背包、制造、放置与科研装置覆盖格统计。</summary>
 public static class DeviceSystem
 {
     private const int SeedStorageRange = 10;
@@ -48,6 +52,7 @@ public static class DeviceSystem
     public static bool IsPlacing => isPlacing;
     public static int PlacingTypeId => placingTypeId;
 
+    /// <summary>注册装置类型并初始化背包（幂等）。</summary>
     public static void Init()
     {
         if (initialized)
@@ -182,6 +187,7 @@ public static class DeviceSystem
         placingTypeId = 0;
     }
 
+    /// <summary>在地图格放置装置；种子库会立即对范围内格施加效果。</summary>
     public static bool TryPlaceDevice(int typeId, int x, int y)
     {
         if (!typeMap.ContainsKey(typeId))
@@ -241,6 +247,7 @@ public static class DeviceSystem
         }
     }
 
+    /// <summary>统计所有科研装置覆盖的环境格数量（去重），用于每步研发点加成。</summary>
     public static int CountResearchCoverageCells()
     {
         if (SimulationCore.EnvirData == null)
@@ -346,6 +353,7 @@ public static class DeviceSystem
         if (!researchCoverageDirty)
             return;
 
+        // 仅在装置放置/读档后重建；O(devices × range²)，结果缓存供 CountResearchCoverageCells 查询
         researchCoverageDirty = false;
         researchCoverageIndices.Clear();
         researchCoverageSet.Clear();

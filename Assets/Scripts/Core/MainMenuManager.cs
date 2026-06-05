@@ -1,6 +1,8 @@
+// MainMenuManager.cs - 主菜单场景：新游戏、读档、设置与槽位管理
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
+/// <summary>主菜单 IMGUI：场景跳转、存档列表与删除确认。</summary>
 public class MainMenuManager : MonoBehaviour
 {
     private bool showLoadWindow = false;

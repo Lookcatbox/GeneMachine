@@ -1,3 +1,4 @@
+// ChemistrySystem.cs - 化学物质/反应配置加载、环境反应、热力图与 overlay 掩码
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -5,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>内置默认物质枚举（与 JSON id 对应，仅作兼容引用）。</summary>
 public enum ChemicalSubstance
 {
     Organic = 0,
@@ -15,6 +17,7 @@ public enum ChemicalSubstance
     Count = 5
 }
 
+/// <summary>物质相态：固体不扩散，气体/液体参与 EnvironmentDiffusionSystem。</summary>
 public enum ChemicalPhase
 {
     Solid = 0,
@@ -22,6 +25,7 @@ public enum ChemicalPhase
     Gas = 2
 }
 
+/// <summary>运行时物质定义（由 JSON 加载）。</summary>
 public class ChemistrySubstanceRuntime
 {
     public int Index;
@@ -34,6 +38,7 @@ public class ChemistrySubstanceRuntime
     public float BaselineWater;
 }
 
+/// <summary>运行时反应定义（条件与速率已编译为 ChemistryExpression）。</summary>
 public class ChemicalReactionRuntime
 {
     public string Id;
@@ -50,6 +55,9 @@ public class ChemicalReactionRuntime
     public ChemistryExpression RateExpression;
 }
 
+/// <summary>
+/// 环境化学系统：读 chemistry-reactions.json、开局播种基准浓度、每步环境反应、化学 overlay 与 revision 通知渲染刷新。
+/// </summary>
 public static class ChemistrySystem
 {
     const string ConfigFileName = "chemistry-reactions.json";
@@ -67,6 +75,7 @@ public static class ChemistrySystem
     public static int SubstanceCount => substances != null ? substances.Length : 0;
     public static ChemistrySubstanceRuntime[] Substances => substances;
 
+    /// <summary>首次加载 JSON 配置（幂等）。</summary>
     public static void Init()
     {
         if (initialized)
@@ -76,6 +85,7 @@ public static class ChemistrySystem
         initialized = true;
     }
 
+    /// <summary>重新加载配置并清空 overlay 与运行错误缓存。</summary>
     public static void ReloadConfig()
     {
         initialized = false;
@@ -90,14 +100,17 @@ public static class ChemistrySystem
         SetChemicalOverlayMask(0);
     }
 
+    /// <summary>设置化学 overlay 位掩码（最多 31 种物质）并刷新渲染。</summary>
     public static void SetChemicalOverlayMask(int mask)
     {
         int maxMask = SubstanceCount >= 31 ? -1 : ((1 << SubstanceCount) - 1);
         ChemicalOverlayMask = mask & maxMask;
         SyncOverlayViewMode();
+        ChemicalOverlayRasterizer.NotifyMaskChanged();
         CellRenderer.InvalidateChemicalOverlay();
     }
 
+    /// <summary>切换某物质是否在化学 overlay 中显示。</summary>
     public static void ToggleChemicalOverlay(int substanceIndex)
     {
         if (substanceIndex < 0 || substanceIndex >= SubstanceCount || substanceIndex >= 31)
@@ -109,6 +122,7 @@ public static class ChemistrySystem
         else
             ChemicalOverlayMask |= bit;
         SyncOverlayViewMode();
+        ChemicalOverlayRasterizer.NotifyMaskChanged();
         CellRenderer.InvalidateChemicalOverlay();
     }
 
@@ -119,6 +133,7 @@ public static class ChemistrySystem
         return (ChemicalOverlayMask & (1 << substanceIndex)) != 0;
     }
 
+    /// <summary>单调递增版本号；渲染层用于检测化学热力图是否需要重绘。</summary>
     public static long GetChemicalRevision()
     {
         return Interlocked.Read(ref chemicalRevision);
@@ -182,6 +197,7 @@ public static class ChemistrySystem
 
     public static void SeedEnvironmentBaselines(Envir[,] envirData)
     {
+        // 仅新游戏开局调用一次，O(EnvirSize²)；不是每回合物质源
         if (envirData == null)
             return;
 
@@ -195,8 +211,11 @@ public static class ChemistrySystem
                     ApplyBaselineForTopography(env);
             }
         }
+
+        ChemicalOverlayRasterizer.RequestFullRebuild();
     }
 
+    /// <summary>按地形（陆/水）将各物质设为 JSON 中的开局基准浓度。</summary>
     public static void ApplyBaselineForTopography(Envir env)
     {
         if (env == null)
@@ -211,11 +230,14 @@ public static class ChemistrySystem
         }
     }
 
+    /// <summary>每步对环境格执行已启用反应（按行并行）；结束后递增 chemicalRevision。</summary>
     public static void ApplyEnvironmentReactions(Envir[,] envirData)
     {
         if (!initialized || envirData == null || reactions == null || reactions.Length == 0)
             return;
 
+        // 瓶颈：O(EnvirSize² × reactions)。每格独立读写，行间无依赖，故按行 Parallel.For。
+        // 勿改回全图串行——400 万格 × 5 反应在单线程上约 10s/步。
         int size = SimulationConfig.EnvirSize;
         int substanceCount = SubstanceCount;
         Parallel.For(1, size + 1, y =>
@@ -226,13 +248,13 @@ public static class ChemistrySystem
                 if (env == null)
                     continue;
                 env.EnsureChemicalCapacity(substanceCount);
-                ApplyReactionsToCell(env);
+                ApplyReactionsToCell(env, x, y);
             }
         });
         Interlocked.Increment(ref chemicalRevision);
     }
 
-    static void ApplyReactionsToCell(Envir env)
+    static void ApplyReactionsToCell(Envir env, int envX, int envY)
     {
         float tempC = SimulationCore.KelvinToCelsius(env.Temp);
         int light = env.Light;
@@ -257,7 +279,7 @@ public static class ChemistrySystem
                 if (delta <= 0f)
                     continue;
 
-                ApplyReactionDelta(env, reaction, delta);
+                ApplyReactionDelta(env, envX, envY, reaction, delta);
             }
             catch (ThreadAbortException)
             {
@@ -336,8 +358,10 @@ public static class ChemistrySystem
         return 0f;
     }
 
-    static void ApplyReactionDelta(Envir env, ChemicalReactionRuntime reaction, float delta)
+    static void ApplyReactionDelta(Envir env, int envX, int envY, ChemicalReactionRuntime reaction, float delta)
     {
+        ChemicalStepAudit.RecordReactionChange(envX, envY, reaction, delta);
+
         for (int i = 0; i < reaction.Reactants.Length; i++)
             env.AddChemicalAmount(reaction.Reactants[i], -reaction.ReactantCoeffs[i] * delta);
 

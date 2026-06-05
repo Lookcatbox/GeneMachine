@@ -1,3 +1,4 @@
+// GeneMutationTable.cs - 基因突变权重二维表与 hashId 稠密索引
 using System;
 using System.Collections.Generic;
 
@@ -27,6 +28,7 @@ public static class GeneMutationTable
 
     public static int VariantCount => variants != null ? variants.Length : 0;
 
+    /// <summary>构建默认基因变体列表与突变权重表（幂等）。</summary>
     public static void Init()
     {
         if (initialized)

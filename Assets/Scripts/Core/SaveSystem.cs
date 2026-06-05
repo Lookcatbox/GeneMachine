@@ -1,8 +1,10 @@
+// SaveSystem.cs - 多槽位二进制存档（世界格、细胞、装置、视图状态）
 using System;
 using System.IO;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>槽位元数据（保存时间、游玩时长）。</summary>
 [Serializable]
 public class SaveSlotMeta
 {
@@ -10,6 +12,7 @@ public class SaveSlotMeta
     public double playSeconds;
 }
 
+/// <summary>UI 展示的槽位摘要（含截图纹理）。</summary>
 public class SaveSlotInfo
 {
     public bool HasData;
@@ -18,6 +21,7 @@ public class SaveSlotInfo
     public Texture2D Screenshot;
 }
 
+/// <summary>相机、视图模式、面板与化学 overlay 的存档快照。</summary>
 public struct ViewSaveData
 {
     public Vector3 CameraPosition;
@@ -31,6 +35,7 @@ public struct ViewSaveData
     public int ChemicalOverlayMask;
 }
 
+/// <summary>读写 Saves/ 目录下槽位文件；世界格 I/O 为 O(EnvirSize² × 物质数)。</summary>
 public static class SaveSystem
 {
     private const int SaveVersion = 3;
@@ -39,6 +44,7 @@ public static class SaveSystem
 
     public static bool HasPendingLoadSlot => pendingLoadSlot >= 0;
 
+    /// <summary>主菜单选定槽位，进入游戏场景后由 MainManager 消费。</summary>
     public static void SetPendingLoadSlot(int slot)
     {
         pendingLoadSlot = slot;
@@ -77,6 +83,7 @@ public static class SaveSystem
             span.Seconds);
     }
 
+    /// <summary>将当前模拟状态写入指定槽位（含截图与 ViewSaveData）。</summary>
     public static void SaveToSlot(int slot, MainManager manager)
     {
         if (slot < 0)
@@ -111,6 +118,7 @@ public static class SaveSystem
         }
     }
 
+    /// <summary>从槽位恢复世界并应用到 MainManager / SimulationCore。</summary>
     public static bool LoadSlotIntoSimulation(int slot, MainManager manager)
     {
         string dataPath = GetSlotDataPath(slot);
@@ -268,6 +276,7 @@ public static class SaveSystem
         WriteDeviceState(writer, DeviceSystem.CaptureSaveState());
         WriteChemicalSaveHeader(writer);
 
+        // 存档 I/O 瓶颈：O(EnvirSize² × substanceCount) 逐格二进制写入；读档对称
         for (int y = 1; y <= size; y++)
         {
             for (int x = 1; x <= size; x++)
@@ -309,6 +318,7 @@ public static class SaveSystem
         int size = reader.ReadInt32();
         if (size != SimulationConfig.EnvirSize)
             return false;
+        ChemistryField.Allocate(size, ChemistrySystem.SubstanceCount);
 
         int worldSeed = reader.ReadInt32();
         long totalSteps = reader.ReadInt64();
@@ -337,6 +347,7 @@ public static class SaveSystem
                 int maxCellNum = reader.ReadInt32();
 
                 Envir env = new Envir(maxCellNum);
+                env.SetPosition(x, y);
                 env.Height = height;
                 env.Topography = topo;
                 env.Temp = temp;

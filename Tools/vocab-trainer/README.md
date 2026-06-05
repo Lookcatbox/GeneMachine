@@ -10,7 +10,7 @@ DeepSeek 驱动的智能背单词与学习 Agent 工具。纯前端 + 本地 Pyt
 - **艾宾浩斯复习**：SM-2 变体间隔重复，「复习」页查看待复习词与计划
 - **薄弱重练**：一轮学习中正确率 &lt; 70% 或错多种题型的单词，AI 自动加练
 - **学习 Agent**：输入任意知识主题与题量，AI 生成专项训练；薄弱知识点临时加题
-- **图示题（SVG）**：AI 返回 `diagram` JSON，前端渲染为 SVG；**生成时强制 `deepseek-v4-pro` + Thinking Max**
+- **图示题（SVG）**：AI 返回 `diagram` JSON，前端渲染为 SVG；**仅图示补生成**走 `deepseek-v4-pro` + Thinking High，普通出题用设置中的模型
 - **总结报告**：每轮结束后 AI 生成 Markdown 报告，错题自动收录到「记录」
 
 ## 快速开始

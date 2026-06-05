@@ -1,5 +1,7 @@
+// DevicePlayerPanelTab.cs - 玩家面板「装置」页：类型列表、制造与放置说明
 using UnityEngine;
 
+/// <summary>装置背包、制造条件与当前放置模式状态展示。</summary>
 public class DevicePlayerPanelTab : PlayerPanelTabPage
 {
     private int selectedTypeId = -1;

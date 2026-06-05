@@ -2,6 +2,7 @@
 using UnityEngine;
 using System.Collections;
 
+/// <summary>游戏场景入口：启动 SimulationCore、绘制玩家面板/存档 UI、同步渲染与装置放置交互。</summary>
 public class MainManager : MonoBehaviour
 {
     [Header("模拟设置")]

@@ -3,13 +3,15 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>开局一次性生成高度、地形类型与（可选）河湖水系。</summary>
 public static class TerrainGenerator
 {
     private static readonly int[] DX8 = { -1, -1, -1, 0, 0, 1, 1, 1 };
     private static readonly int[] DY8 = { -1, 0, 1, -1, 1, -1, 0, 1 };
 
     /// <summary>
-    /// 生成完整地形：高度图 → 水源河流/湖泊 → 写入Envir
+    /// 生成完整地形：高度图 → 水源河流/湖泊 → 写入Envir。
+    /// 仅 InitWorld 调用一次；GeneratePerlinHeight 为 O(EnvirSize² × NoiseLayerCount)。
     /// </summary>
     public static void Generate(Envir[,] envirData, int seed)
     {

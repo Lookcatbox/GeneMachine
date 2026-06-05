@@ -1,6 +1,8 @@
+// HeatDiffusion.cs - 温度增温、散热与 8 邻域热扩散
 using System.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>每步更新全图温度场（三遍并行扫描）。</summary>
 public static class HeatDiffusion
 {
     private static float[,] tempBuffer;
@@ -14,6 +16,7 @@ public static class HeatDiffusion
         int size = SimulationConfig.EnvirSize;
         EnsureBuffers(size);
 
+        // --- 第 1 遍：增温 + 散热，O(EnvirSize²) 按行并行 ---
         float lightGainAtFull = SimulationConfig.HeatLightGainAtFull;
         float baseLoss = SimulationConfig.HeatLossLand;
         float conductionLand = SimulationConfig.HeatConductionLand;
@@ -72,6 +75,7 @@ public static class HeatDiffusion
         float diffusionStrength = Mathf.Clamp01(SimulationConfig.HeatDiffusionStrength);
         if (diffusionStrength > 0f)
         {
+            // --- 第 2 遍：8 邻域热扩散，读 tempBuffer 写 diffusionBuffer ---
             Parallel.For(1, size + 1, y =>
             {
                 int yDown = y == 1 ? size : y - 1;
@@ -108,6 +112,7 @@ public static class HeatDiffusion
             });
         }
 
+        // --- 第 3 遍：写回 Envir.Temp ---
         Parallel.For(1, size + 1, y =>
         {
             for (int x = 1; x <= size; x++)

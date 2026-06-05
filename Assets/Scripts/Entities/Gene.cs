@@ -2,12 +2,14 @@
 
 using System.Collections.Generic;
 
+/// <summary>全图某 baseId 基因在存活细胞中的出现次数（按细胞计一次）。</summary>
 public struct GenePresenceEntry
 {
     public int baseId;
     public int cellCount;
 }
 
+/// <summary>基因实例：baseId 分派行为，hashId 区分升级变体，energyCost 为每回合消耗。</summary>
 public struct Gene
 {
     public int baseId;       // 基类编号，用于行为函数分派

@@ -1,6 +1,8 @@
+// LightUpdate.cs - 每回合更新环境格光照（柏林噪声 + 纬度曲线）
 using System.Threading.Tasks;
 using UnityEngine;
 
+/// <summary>并行更新全图 <see cref="Envir.Light"/>。</summary>
 public static class LightUpdate
 {
     private static bool seeded = false;
@@ -13,6 +15,7 @@ public static class LightUpdate
     {
         if (envirData == null) return;
 
+        // O(EnvirSize² × octaves × 3 Perlin)；octaves 与 EnvirSize 增大时线性/平方放大
         EnsureSeeded();
         int size = SimulationConfig.EnvirSize;
         int minLight = Mathf.RoundToInt(SimulationConfig.LightMin);

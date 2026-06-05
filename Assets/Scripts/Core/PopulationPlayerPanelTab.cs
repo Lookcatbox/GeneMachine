@@ -1,5 +1,7 @@
+// PopulationPlayerPanelTab.cs - 玩家面板「种群」页（占位，待扩展）
 using UnityEngine;
 
+/// <summary>种群统计与管理 UI 预留页签。</summary>
 public class PopulationPlayerPanelTab : PlayerPanelTabPage
 {
     public PopulationPlayerPanelTab() : base("种群")

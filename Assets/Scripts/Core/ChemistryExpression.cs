@@ -1,7 +1,9 @@
+// ChemistryExpression.cs - 化学条件/速率安全表达式解析与求值（编译期优化与校验）
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 
+/// <summary>表达式求值上下文：环境格、反应、limiting 等变量。</summary>
 public struct ChemistryExpressionContext
 {
     public float tempC;
@@ -30,6 +32,7 @@ public struct ChemistryExpressionContext
     }
 }
 
+/// <summary>已编译表达式；<see cref="Compile"/> 时做白名单校验与常量子树折叠。</summary>
 public class ChemistryExpression
 {
     readonly Node root;
@@ -41,6 +44,7 @@ public class ChemistryExpression
         this.root = root;
     }
 
+    /// <summary>解析并编译表达式；空字符串视为常量 1。</summary>
     public static ChemistryExpression Compile(string source)
     {
         if (string.IsNullOrWhiteSpace(source))
@@ -50,6 +54,7 @@ public class ChemistryExpression
         return new ChemistryExpression(source, root);
     }
 
+    /// <summary>在给定上下文中求值；NaN/Inf 返回 0。</summary>
     public float Evaluate(ChemistryExpressionContext context)
     {
         float value = root.Evaluate(context);
