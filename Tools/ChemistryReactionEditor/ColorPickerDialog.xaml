@@ -1,0 +1,103 @@
+<Window x:Class="ChemistryReactionEditor.ColorPickerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="选择颜色"
+        SizeToContent="WidthAndHeight"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False">
+    <Border Padding="14" Background="White">
+        <StackPanel Width="300">
+            <TextBlock Text="调色盘" FontWeight="SemiBold" Margin="0,0,0,8" />
+            <TextBlock Text="在色盘上点击或拖拽：角度选色相，离中心远近选饱和度"
+                       Foreground="#666"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,10" />
+
+            <Grid HorizontalAlignment="Center" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0"
+                        Width="228"
+                        Height="228"
+                        CornerRadius="114"
+                        BorderBrush="#CCC"
+                        BorderThickness="1"
+                        ClipToBounds="True"
+                        Cursor="Cross"
+                        MouseLeftButtonDown="Wheel_MouseLeftButtonDown"
+                        MouseMove="Wheel_MouseMove"
+                        MouseLeftButtonUp="Wheel_MouseLeftButtonUp">
+                    <Image x:Name="WheelImage" Stretch="Fill" />
+                </Border>
+
+                <Canvas x:Name="WheelOverlay"
+                        Grid.Column="0"
+                        Width="228"
+                        Height="228"
+                        IsHitTestVisible="False">
+                    <Ellipse x:Name="WheelThumb"
+                             Width="14"
+                             Height="14"
+                             Stroke="White"
+                             StrokeThickness="2"
+                             Fill="Transparent" />
+                </Canvas>
+
+                <Grid Grid.Column="1" Width="28" Height="228" Margin="12,0,0,0">
+                    <Border BorderBrush="#CCC"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            ClipToBounds="True"
+                            Cursor="Hand"
+                            ToolTip="明度：上下拖动调节明暗"
+                            MouseLeftButtonDown="Brightness_MouseLeftButtonDown"
+                            MouseMove="Brightness_MouseMove"
+                            MouseLeftButtonUp="Brightness_MouseLeftButtonUp">
+                        <Rectangle x:Name="BrightnessGradient" Stretch="Fill" />
+                    </Border>
+                    <Canvas IsHitTestVisible="False">
+                        <Rectangle x:Name="BrightnessThumb"
+                                   Width="28"
+                                   Height="3"
+                                   Fill="White"
+                                   Stroke="#444"
+                                   StrokeThickness="1" />
+                    </Canvas>
+                </Grid>
+            </Grid>
+
+            <Border x:Name="PreviewBorder"
+                    Height="34"
+                    CornerRadius="4"
+                    BorderBrush="#CCC"
+                    BorderThickness="1"
+                    Margin="0,0,0,10" />
+
+            <TextBlock Text="十六进制颜色" Margin="0,0,0,4" />
+            <TextBox x:Name="HexBox"
+                     Height="28"
+                     FontFamily="Consolas"
+                     TextChanged="HexBox_TextChanged"
+                     LostFocus="HexBox_LostFocus" />
+
+            <TextBlock x:Name="HexErrorText"
+                       Foreground="#C0392B"
+                       FontSize="11"
+                       Margin="0,4,0,0"
+                       Visibility="Collapsed"
+                       Text="请输入 #RRGGBB 或 #RRGGBBAA 格式" />
+
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,14,0,0">
+                <Button Content="取消" Width="72" Margin="0,0,8,0" IsCancel="True" />
+                <Button Content="确定" Width="72" IsDefault="True" Click="Ok_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

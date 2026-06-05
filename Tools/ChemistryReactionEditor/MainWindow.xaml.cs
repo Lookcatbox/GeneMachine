@@ -124,6 +124,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedSubstance = item;
     }
 
+    void SubstanceColor_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not FrameworkElement element || element.DataContext is not SubstanceModel substance)
+            return;
+
+        e.Handled = true;
+        ColorPickerDialog dialog = new(substance.Color, this);
+        if (dialog.ShowDialog() == true)
+            substance.Color = dialog.SelectedColorHex;
+    }
+
     void DeleteSubstance_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedSubstance == null)
