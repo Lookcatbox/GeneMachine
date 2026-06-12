@@ -340,10 +340,12 @@ public static class DeviceSystem
                 if (env.CellNum >= env.MaxCellNum)
                     continue;
 
-                Cell cell = new Cell(nx, ny, true);
+                Cell cell = CellPool.Rent(nx, ny, true);
                 Species.InitPlayerCell(cell);
                 if (env.AddCell(cell))
                     SimulationCore.AllCells.Add(cell);
+                else
+                    CellPool.Return(cell);
             }
         }
     }

@@ -52,11 +52,6 @@ public class MainManager : MonoBehaviour
     private Rect lastSaveModalBlockerRect;
     private bool saveScreenshotPending = false;
 
-    private const int SaveConfirmModalId = 91001;
-    private const int DeleteConfirmModalId = 91002;
-    private GUIStyle saveModalLabelStyle;
-    private GUIStyle saveModalShadowStyle;
-
     void Reset()
     {
         InitializePlayerPanelTabs();
@@ -67,6 +62,7 @@ public class MainManager : MonoBehaviour
 
     void Awake()
     {
+        DisplaySettings.LoadAndApply();
         InitializePlayerPanelTabs();
         EnsurePlayerPanelToggleTexture();
         ApplyRenderSettings();
@@ -201,8 +197,8 @@ public class MainManager : MonoBehaviour
         texture.wrapMode = TextureWrapMode.Clamp;
 
         Color clear = new Color(0f, 0f, 0f, 0f);
-        Color fill = new Color(0.14f, 0.16f, 0.22f, 0.92f);
-        Color outline = new Color(0.72f, 0.78f, 0.92f, 0.95f);
+        Color fill = GeneMachineGuiTheme.Panel;
+        Color outline = GeneMachineGuiTheme.BorderHot;
 
         for (int y = 0; y < height; y++)
         {
@@ -252,35 +248,10 @@ public class MainManager : MonoBehaviour
     {
         if (!showUI) return;
 
-        GUIStyle style = new GUIStyle(GUI.skin.label);
-        style.fontSize = 16;
-        style.normal.textColor = Color.white;
+        GUIStyle style = GeneMachineGuiTheme.BuildLabelStyle(16);
+        GUIStyle shadowStyle = GeneMachineGuiTheme.BuildShadowStyle(style);
 
-        GUIStyle shadowStyle = new GUIStyle(style);
-        shadowStyle.normal.textColor = Color.black;
-
-        float y = 10;
-        float lineH = 22;
-
-        string pauseText = SimulationCore.IsPaused() ? " [已暂停]" : "";
-
-        string[] lines = new string[]
-        {
-            string.Format("基因自动机{0}", pauseText),
-            string.Format("计算频率: {0} 步/秒 | 渲染帧率: {1:F0} FPS", SimulationCore.stepsPerSecond, 1f / Time.deltaTime),
-            string.Format("存活细胞: {0} | 总步数: {1}", SimulationCore.aliveCellCount, SimulationCore.totalSteps),
-            string.Format("模拟速度: {0}x", SimulationCore.speedMultiplier),
-            "",
-            "操作: 空格=暂停/继续  WASD=移动  滚轮=缩放  右键拖拽=平移  左键环境格=锁定  F1=隐藏UI"
-        };
-
-        for (int i = 0; i < lines.Length; i++)
-        {
-            // 文字阴影
-            GUI.Label(new Rect(11, y + 1, 600, lineH), lines[i], shadowStyle);
-            GUI.Label(new Rect(10, y, 600, lineH), lines[i], style);
-            y += lineH;
-        }
+        DrawSimulationCommandBar(style, shadowStyle);
 
         DrawSpeedControl(style, shadowStyle);
         DrawPlayerOperationPanel(style, shadowStyle);
@@ -296,6 +267,50 @@ public class MainManager : MonoBehaviour
         DrawDeleteConfirmModal(style, shadowStyle);
     }
 
+    void DrawSimulationCommandBar(GUIStyle style, GUIStyle shadowStyle)
+    {
+        float rightBoundary = Mathf.Min(GetPlayerPanelLeftBoundary() - PanelEdgeMargin, Screen.width - PanelEdgeMargin);
+        float width = Mathf.Clamp(rightBoundary - PanelEdgeMargin, 560f, 900f);
+        Rect barRect = new Rect(PanelEdgeMargin, PanelEdgeMargin, width, 112f);
+
+        GeneMachineGuiTheme.DrawPanel(barRect);
+        GeneMachineGuiTheme.DrawGrid(barRect, 32f);
+
+        GUIStyle brandStyle = GeneMachineGuiTheme.BuildTitleStyle(24, TextAnchor.UpperLeft);
+        GUIStyle brandShadow = GeneMachineGuiTheme.BuildShadowStyle(brandStyle);
+        GUIStyle monoStyle = GeneMachineGuiTheme.BuildLabelStyle(12);
+        monoStyle.fontStyle = FontStyle.Bold;
+        monoStyle.normal.textColor = GeneMachineGuiTheme.MutedText;
+        GUIStyle monoShadow = GeneMachineGuiTheme.BuildShadowStyle(monoStyle);
+
+        GeneMachineGuiTheme.DrawGeneMark(new Rect(barRect.x + 14f, barRect.y + 16f, 46f, 46f), 0.90f);
+
+        Rect brandRect = new Rect(barRect.x + 68f, barRect.y + 12f, 138f, 34f);
+        GeneMachineGuiTheme.DrawText(brandRect, "GeneMachine", brandStyle, brandShadow);
+
+        bool paused = SimulationCore.IsPaused();
+        string stateText = paused ? "PAUSED" : "RUNNING";
+        Color stateColor = paused ? GeneMachineGuiTheme.Amber : GeneMachineGuiTheme.GeneGreen;
+        Rect stateRect = new Rect(barRect.x + 70f, barRect.y + 52f, 136f, 18f);
+        GeneMachineGuiTheme.DrawStatusDot(new Vector2(stateRect.x + 7f, stateRect.y + 9f), stateColor);
+        GeneMachineGuiTheme.DrawText(new Rect(stateRect.x + 22f, stateRect.y, stateRect.width - 22f, stateRect.height), stateText, monoStyle, monoShadow);
+
+        Rect hintRect = new Rect(barRect.x + 16f, barRect.yMax - 28f, barRect.width - 32f, 18f);
+        GeneMachineGuiTheme.DrawText(hintRect, "SPACE 暂停/继续   WASD 移动   滚轮 缩放   左键锁定环境格   F1 隐藏UI", monoStyle, monoShadow);
+
+        float chipX = barRect.x + 214f;
+        float chipY = barRect.y + 18f;
+        float gap = 8f;
+        float chipWidth = Mathf.Max(104f, (barRect.xMax - chipX - 18f - gap * 3f) / 4f);
+        GeneMachineGuiTheme.DrawMetricChip(new Rect(chipX, chipY, chipWidth, 52f), "STEPS / SEC", SimulationCore.stepsPerSecond.ToString(), GeneMachineGuiTheme.Cyan, style, shadowStyle);
+        chipX += chipWidth + gap;
+        GeneMachineGuiTheme.DrawMetricChip(new Rect(chipX, chipY, chipWidth, 52f), "FPS", (1f / Mathf.Max(Time.deltaTime, 0.0001f)).ToString("F0"), GeneMachineGuiTheme.GeneGreen, style, shadowStyle);
+        chipX += chipWidth + gap;
+        GeneMachineGuiTheme.DrawMetricChip(new Rect(chipX, chipY, chipWidth, 52f), "CELLS", SimulationCore.aliveCellCount.ToString(), GeneMachineGuiTheme.Amber, style, shadowStyle);
+        chipX += chipWidth + gap;
+        GeneMachineGuiTheme.DrawMetricChip(new Rect(chipX, chipY, chipWidth, 52f), "STEP", SimulationCore.totalSteps.ToString(), GeneMachineGuiTheme.Cyan, style, shadowStyle);
+    }
+
     bool IsSaveModalActive()
     {
         return showSaveConfirm || showDeleteConfirm;
@@ -309,10 +324,9 @@ public class MainManager : MonoBehaviour
         float x = panelRect.x;
         float y = panelRect.y;
 
-        GUI.Box(new Rect(x, y, panelWidth, panelHeight), "");
+        GeneMachineGuiTheme.DrawPanel(new Rect(x, y, panelWidth, panelHeight));
 
-        GUI.Label(new Rect(x + 13, y + 11, panelWidth - 20, 22), "游戏速度", shadowStyle);
-        GUI.Label(new Rect(x + 12, y + 10, panelWidth - 20, 22), "游戏速度", style);
+        GeneMachineGuiTheme.DrawText(new Rect(x + 12, y + 10, panelWidth - 20, 22), "游戏速度", style, shadowStyle);
 
         int currentSpeed = SimulationCore.speedMultiplier;
         float sliderValue = GUI.HorizontalSlider(new Rect(x + 12, y + 42, panelWidth - 24, 20), currentSpeed, 1f, 10f);
@@ -323,11 +337,10 @@ public class MainManager : MonoBehaviour
         }
 
         string speedText = string.Format("{0}x  ({1:F1}秒/步)", SimulationCore.speedMultiplier, 1f / SimulationCore.speedMultiplier);
-        GUI.Label(new Rect(x + 13, y + 60, panelWidth - 20, 22), speedText, shadowStyle);
-        GUI.Label(new Rect(x + 12, y + 59, panelWidth - 20, 22), speedText, style);
+        GeneMachineGuiTheme.DrawText(new Rect(x + 12, y + 59, panelWidth - 20, 22), speedText, style, shadowStyle);
 
         Rect saveRect = new Rect(x + 12, y + 82, panelWidth - 24, 28);
-        if (GUI.Button(saveRect, "保存游戏"))
+        if (GeneMachineGuiTheme.DrawButton(saveRect, "保存游戏", false))
             OpenSaveWindow();
     }
 
@@ -339,16 +352,19 @@ public class MainManager : MonoBehaviour
             return;
 
         Rect panelRect = GetPlayerPanelRect();
-        GUI.Box(panelRect, "");
+        GeneMachineGuiTheme.DrawPanel(panelRect);
+        GeneMachineGuiTheme.DrawGrid(panelRect, 28f);
 
-        GUI.Label(new Rect(panelRect.x + 19f, panelRect.y + 13f, panelRect.width - 38f, 22f), "玩家操作面板", shadowStyle);
-        GUI.Label(new Rect(panelRect.x + 18f, panelRect.y + 12f, panelRect.width - 38f, 22f), "玩家操作面板", style);
+        Rect headerRect = new Rect(panelRect.x + 18f, panelRect.y + 16f, panelRect.width - 36f, 58f);
+        GeneMachineGuiTheme.DrawSectionHeader(headerRect, "SIMULATION INSPECTOR", "Gene Console", style, shadowStyle);
 
-        Rect tabStripRect = new Rect(panelRect.x + 14f, panelRect.y + 44f, panelRect.width - 28f, 42f);
-        DrawPlayerPanelTabs(tabStripRect);
+        float railWidth = 112f;
+        Rect railRect = new Rect(panelRect.x + 16f, headerRect.yMax + 14f, railWidth, panelRect.height - headerRect.yMax - 30f);
+        GeneMachineGuiTheme.DrawInset(railRect);
+        DrawPlayerPanelTabs(railRect, style, shadowStyle);
 
-        Rect contentRect = new Rect(panelRect.x + 14f, tabStripRect.yMax + 8f, panelRect.width - 28f, panelRect.height - tabStripRect.yMax - 20f);
-        GUI.Box(contentRect, "");
+        Rect contentRect = new Rect(railRect.xMax + 12f, railRect.y, panelRect.xMax - railRect.xMax - 28f, railRect.height);
+        GeneMachineGuiTheme.DrawInset(contentRect);
 
         PlayerPanelTabPage activeTab = GetActivePlayerPanelTab();
         if (activeTab != null)
@@ -359,46 +375,41 @@ public class MainManager : MonoBehaviour
     {
         EnsurePlayerPanelToggleTexture();
         Rect toggleRect = GetPlayerPanelToggleRect();
-        GUIStyle toggleStyle = new GUIStyle(GUI.skin.button);
+        GUIStyle toggleStyle = GeneMachineGuiTheme.BuildTitleStyle(22, TextAnchor.MiddleCenter);
         toggleStyle.fontSize = 22;
         toggleStyle.fontStyle = FontStyle.Bold;
-        toggleStyle.alignment = TextAnchor.MiddleCenter;
-        toggleStyle.normal.background = playerPanelToggleTexture;
-        toggleStyle.hover.background = playerPanelToggleTexture;
-        toggleStyle.active.background = playerPanelToggleTexture;
-        toggleStyle.focused.background = playerPanelToggleTexture;
-        toggleStyle.normal.textColor = Color.white;
-        toggleStyle.hover.textColor = Color.white;
-        toggleStyle.active.textColor = new Color(0.92f, 0.96f, 1f);
+        toggleStyle.normal.textColor = GeneMachineGuiTheme.Text;
+        GUIStyle toggleShadow = GeneMachineGuiTheme.BuildShadowStyle(toggleStyle);
 
         string label = playerPanelExpanded ? ">" : "<";
-        if (GUI.Button(toggleRect, label, toggleStyle))
+        GUI.DrawTexture(toggleRect, playerPanelToggleTexture, ScaleMode.StretchToFill);
+        GeneMachineGuiTheme.DrawText(toggleRect, label, toggleStyle, toggleShadow);
+        if (GeneMachineGuiTheme.DrawTransparentClick(toggleRect))
             playerPanelExpanded = !playerPanelExpanded;
     }
 
-    void DrawPlayerPanelTabs(Rect tabStripRect)
+    void DrawPlayerPanelTabs(Rect tabStripRect, GUIStyle labelStyle, GUIStyle shadowStyle)
     {
         if (playerPanelTabCount == 0)
             return;
 
-        float spacing = 4f;
-        float availableWidth = tabStripRect.width - spacing * (playerPanelTabCount - 1);
-        float tabWidth = Mathf.Min(110f, availableWidth / Mathf.Max(1, playerPanelTabCount));
-        float x = tabStripRect.x;
-        Color originalBackground = GUI.backgroundColor;
+        float spacing = 8f;
+        float tabHeight = 54f;
+        float y = tabStripRect.y + 10f;
 
         for (int i = 0; i < playerPanelTabCount; i++)
         {
+            if (y + tabHeight > tabStripRect.yMax - 10f)
+                break;
+
             bool selected = i == activePlayerPanelTabIndex;
-            Rect tabRect = new Rect(x, selected ? tabStripRect.y : tabStripRect.y + 4f, tabWidth, selected ? tabStripRect.height : tabStripRect.height - 4f);
-            GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
-            if (GUI.Button(tabRect, playerPanelTabs[i].Title))
+            Rect tabRect = new Rect(tabStripRect.x + 8f, y, tabStripRect.width - 16f, tabHeight);
+            string index = string.Format("{0:00}", i + 1);
+            if (GeneMachineGuiTheme.DrawNavTab(tabRect, index, playerPanelTabs[i].Title, selected, labelStyle, shadowStyle))
                 activePlayerPanelTabIndex = i;
 
-            x += tabWidth + spacing;
+            y += tabHeight + spacing;
         }
-
-        GUI.backgroundColor = originalBackground;
     }
 
     void DrawViewModeUI()
@@ -421,30 +432,32 @@ public class MainManager : MonoBehaviour
         float y = Screen.height - totalHeight - PanelEdgeMargin;
 
         Color origBg = GUI.backgroundColor;
-        GUI.color = Color.white;
-        GUI.Label(new Rect(x, y, btnWidth, labelHeight), "基础视图");
+        Color origColor = GUI.color;
+        GUIStyle modeLabel = GeneMachineGuiTheme.BuildLabelStyle(14);
+        GUIStyle modeShadow = GeneMachineGuiTheme.BuildShadowStyle(modeLabel);
+        Rect columnRect = GetViewModeButtonColumnRect();
+        Rect panelRect = new Rect(columnRect.x - 10f, columnRect.y - 10f, columnRect.width + 20f, columnRect.height + 20f);
+        GeneMachineGuiTheme.DrawPanel(panelRect);
+        GeneMachineGuiTheme.DrawText(new Rect(x, y, btnWidth, labelHeight), "基础视图", modeLabel, modeShadow);
         y += labelHeight + spacing;
 
         bool baseTerrain = CellRenderer.currentBaseViewMode == CellRenderer.BaseViewMode.Terrain;
-        GUI.backgroundColor = baseTerrain ? new Color(0.3f, 0.8f, 1f) : new Color(0.5f, 0.5f, 0.5f);
-        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "地形视图"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, btnWidth, btnHeight), "地形视图", baseTerrain))
             CellRenderer.currentBaseViewMode = CellRenderer.BaseViewMode.Terrain;
         y += btnHeight + spacing;
 
         bool baseAltitude = CellRenderer.currentBaseViewMode == CellRenderer.BaseViewMode.Altitude;
-        GUI.backgroundColor = baseAltitude ? new Color(0.3f, 0.8f, 1f) : new Color(0.5f, 0.5f, 0.5f);
-        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "高度视图"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, btnWidth, btnHeight), "高度视图", baseAltitude))
             CellRenderer.currentBaseViewMode = CellRenderer.BaseViewMode.Altitude;
         y += btnHeight + sectionGap;
 
         GUI.backgroundColor = origBg;
-        GUI.color = Color.white;
-        GUI.Label(new Rect(x, y, btnWidth, labelHeight), "叠加视图");
+        GUI.color = origColor;
+        GeneMachineGuiTheme.DrawText(new Rect(x, y, btnWidth, labelHeight), "叠加视图", modeLabel, modeShadow);
         y += labelHeight + spacing;
 
         bool showTemp = (CellRenderer.currentOverlayViewMode & CellRenderer.OverlayViewMode.Temperature) != 0;
-        GUI.backgroundColor = showTemp ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
-        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "温度视图"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, btnWidth, btnHeight), "温度视图", showTemp))
         {
             if (showTemp)
                 CellRenderer.currentOverlayViewMode &= ~CellRenderer.OverlayViewMode.Temperature;
@@ -454,8 +467,7 @@ public class MainManager : MonoBehaviour
         y += btnHeight + spacing;
 
         bool showLight = (CellRenderer.currentOverlayViewMode & CellRenderer.OverlayViewMode.Light) != 0;
-        GUI.backgroundColor = showLight ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
-        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "光照视图"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, btnWidth, btnHeight), "光照视图", showLight))
         {
             if (showLight)
                 CellRenderer.currentOverlayViewMode &= ~CellRenderer.OverlayViewMode.Light;
@@ -465,13 +477,13 @@ public class MainManager : MonoBehaviour
         y += btnHeight + sectionGap;
 
         bool normalEnabled = CellRenderer.normalLightingEnabled;
-        GUI.backgroundColor = normalEnabled ? new Color(0.25f, 0.9f, 0.65f) : new Color(0.45f, 0.45f, 0.45f);
-        if (GUI.Button(new Rect(x, y, btnWidth, btnHeight), "3D"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, btnWidth, btnHeight), "3D", normalEnabled))
         {
             CellRenderer.normalLightingEnabled = !CellRenderer.normalLightingEnabled;
         }
 
         GUI.backgroundColor = origBg;
+        GUI.color = origColor;
     }
 
     void DrawLightControlUI(GUIStyle style, GUIStyle shadowStyle)
@@ -485,9 +497,8 @@ public class MainManager : MonoBehaviour
         Rect squareRect = new Rect(x + padding, y + 26f, squareSize, squareSize);
         float handleRadius = 13f;
 
-        GUI.Box(panelRect, "");
-        GUI.Label(new Rect(x + 11, y + 7, panelSize - 22, 20), "太阳方向", shadowStyle);
-        GUI.Label(new Rect(x + 10, y + 6, panelSize - 22, 20), "太阳方向", style);
+        GeneMachineGuiTheme.DrawPanel(panelRect);
+        GeneMachineGuiTheme.DrawText(new Rect(x + 10, y + 6, panelSize - 22, 20), "太阳方向", style, shadowStyle);
 
         DrawLightControlGuides(squareRect);
 
@@ -518,32 +529,27 @@ public class MainManager : MonoBehaviour
             draggingLightHandle = false;
         }
 
-        Color previousColor = GUI.color;
-        GUI.color = new Color(1f, 0.88f, 0.35f, 0.98f);
-        GUI.Box(handleRect, "☼");
-        GUI.color = previousColor;
+        GeneMachineGuiTheme.DrawBox(handleRect, new Color(GeneMachineGuiTheme.Amber.r, GeneMachineGuiTheme.Amber.g, GeneMachineGuiTheme.Amber.b, 0.20f), GeneMachineGuiTheme.Amber);
+        GUIStyle handleStyle = GeneMachineGuiTheme.BuildTitleStyle(16, TextAnchor.MiddleCenter);
+        handleStyle.normal.textColor = GeneMachineGuiTheme.Amber;
+        GUIStyle handleShadow = GeneMachineGuiTheme.BuildShadowStyle(handleStyle);
+        GeneMachineGuiTheme.DrawText(handleRect, "☼", handleStyle, handleShadow);
     }
 
     void DrawLightControlGuides(Rect squareRect)
     {
-        Color previousColor = GUI.color;
+        GeneMachineGuiTheme.DrawBox(squareRect, GeneMachineGuiTheme.Inset, GeneMachineGuiTheme.Border);
 
-        GUI.color = new Color(0.12f, 0.12f, 0.12f, 0.92f);
-        GUI.Box(squareRect, "");
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.x, squareRect.center.y - 1f, squareRect.width, 2f), new Color(1f, 1f, 1f, 0.16f), Color.clear);
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.center.x - 1f, squareRect.y, 2f, squareRect.height), new Color(1f, 1f, 1f, 0.16f), Color.clear);
 
-        GUI.color = new Color(1f, 1f, 1f, 0.16f);
-        GUI.Box(new Rect(squareRect.x, squareRect.center.y - 1f, squareRect.width, 2f), "");
-        GUI.Box(new Rect(squareRect.center.x - 1f, squareRect.y, 2f, squareRect.height), "");
-
-        GUI.color = new Color(1f, 1f, 1f, 0.08f);
         float quarterX = squareRect.width * 0.25f;
         float quarterY = squareRect.height * 0.25f;
-        GUI.Box(new Rect(squareRect.x + quarterX - 1f, squareRect.y, 2f, squareRect.height), "");
-        GUI.Box(new Rect(squareRect.x + quarterX * 3f - 1f, squareRect.y, 2f, squareRect.height), "");
-        GUI.Box(new Rect(squareRect.x, squareRect.y + quarterY - 1f, squareRect.width, 2f), "");
-        GUI.Box(new Rect(squareRect.x, squareRect.y + quarterY * 3f - 1f, squareRect.width, 2f), "");
-
-        GUI.color = previousColor;
+        Color guideColor = new Color(1f, 1f, 1f, 0.08f);
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.x + quarterX - 1f, squareRect.y, 2f, squareRect.height), guideColor, Color.clear);
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.x + quarterX * 3f - 1f, squareRect.y, 2f, squareRect.height), guideColor, Color.clear);
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.x, squareRect.y + quarterY - 1f, squareRect.width, 2f), guideColor, Color.clear);
+        GeneMachineGuiTheme.DrawBox(new Rect(squareRect.x, squareRect.y + quarterY * 3f - 1f, squareRect.width, 2f), guideColor, Color.clear);
     }
 
     void UpdateEnvironmentSelectionState()
@@ -723,7 +729,7 @@ public class MainManager : MonoBehaviour
         float panelWidth = 250f;
         float panelHeight = 122f;
         float x = Mathf.Max(PanelEdgeMargin, GetPlayerPanelLeftBoundary() - panelWidth - PanelEdgeMargin);
-        return new Rect(x, PanelEdgeMargin, panelWidth, panelHeight);
+        return new Rect(x, PanelEdgeMargin + 128f, panelWidth, panelHeight);
     }
 
     Rect GetLightControlPanelRect()
@@ -1005,12 +1011,8 @@ public class MainManager : MonoBehaviour
 
     void DrawSaveDimOverlay()
     {
-        // 仅绘制遮罩，不注册全屏按钮（全屏按钮会抢走 ModalWindow 的点击）
         lastSaveModalBlockerRect = new Rect(0f, 0f, Screen.width, Screen.height);
-        Color previousColor = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, SimulationConfig.SaveModalOverlayAlpha);
-        GUI.Box(lastSaveModalBlockerRect, GUIContent.none);
-        GUI.color = previousColor;
+        GeneMachineGuiTheme.DrawBox(lastSaveModalBlockerRect, new Color(0f, 0f, 0f, SimulationConfig.SaveModalOverlayAlpha), Color.clear);
     }
 
     void DrawSaveConfirmModal(GUIStyle labelStyle, GUIStyle shadowStyle)
@@ -1018,44 +1020,32 @@ public class MainManager : MonoBehaviour
         if (!showSaveConfirm)
             return;
 
-        saveModalLabelStyle = labelStyle;
-        saveModalShadowStyle = shadowStyle;
-
         float width = 360f;
-        float height = 130f;
+        float height = 148f;
         Rect rect = new Rect(
             (Screen.width - width) * 0.5f,
             (Screen.height - height) * 0.5f,
             width,
             height);
 
-        int prevDepth = GUI.depth;
-        GUI.depth = 1000;
-        lastSaveConfirmRect = GUI.ModalWindow(SaveConfirmModalId, rect, DrawSaveConfirmWindow, "覆盖存档");
-        GUI.depth = prevDepth;
-    }
+        lastSaveConfirmRect = rect;
+        GeneMachineGuiTheme.DrawModalShell(rect, "覆盖存档", labelStyle, shadowStyle);
+        GeneMachineGuiTheme.DrawText(new Rect(rect.x + 18f, rect.y + 58f, rect.width - 36f, 24f), "覆盖该存档？", labelStyle, shadowStyle);
 
-    void DrawSaveConfirmWindow(int windowId)
-    {
-        GUIStyle labelStyle = saveModalLabelStyle ?? GUI.skin.label;
-        GUIStyle shadowStyle = saveModalShadowStyle ?? GUI.skin.label;
-
-        GUILayout.Label("覆盖该存档？", labelStyle);
-        GUILayout.Space(12f);
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("确定", GUILayout.Height(30f)))
+        Rect confirmRect = new Rect(rect.x + 18f, rect.yMax - 44f, (rect.width - 48f) * 0.5f, 28f);
+        Rect cancelRect = new Rect(confirmRect.xMax + 12f, confirmRect.y, confirmRect.width, confirmRect.height);
+        if (GeneMachineGuiTheme.DrawButton(confirmRect, "确定", true))
         {
             int slot = pendingSaveSlot;
             showSaveConfirm = false;
             pendingSaveSlot = -1;
             PerformSave(slot);
         }
-        if (GUILayout.Button("取消", GUILayout.Height(30f)))
+        if (GeneMachineGuiTheme.DrawButton(cancelRect, "取消", false))
         {
             showSaveConfirm = false;
             pendingSaveSlot = -1;
         }
-        GUILayout.EndHorizontal();
     }
 
     void DrawDeleteConfirmModal(GUIStyle labelStyle, GUIStyle shadowStyle)
@@ -1063,32 +1053,22 @@ public class MainManager : MonoBehaviour
         if (!showDeleteConfirm)
             return;
 
-        saveModalLabelStyle = labelStyle;
-        saveModalShadowStyle = shadowStyle;
-
         float width = 360f;
-        float height = 130f;
+        float height = 148f;
         Rect rect = new Rect(
             (Screen.width - width) * 0.5f,
             (Screen.height - height) * 0.5f,
             width,
             height);
 
-        int prevDepth = GUI.depth;
-        GUI.depth = 1000;
-        lastSaveConfirmRect = GUI.ModalWindow(DeleteConfirmModalId, rect, DrawDeleteConfirmWindow, "删除存档");
-        GUI.depth = prevDepth;
-    }
-
-    void DrawDeleteConfirmWindow(int windowId)
-    {
-        GUIStyle labelStyle = saveModalLabelStyle ?? GUI.skin.label;
-
+        lastSaveConfirmRect = rect;
+        GeneMachineGuiTheme.DrawModalShell(rect, "删除存档", labelStyle, shadowStyle);
         string message = string.Format("确定删除槽位 {0} 的存档？", pendingDeleteSlot + 1);
-        GUILayout.Label(message, labelStyle);
-        GUILayout.Space(12f);
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("确定", GUILayout.Height(30f)))
+        GeneMachineGuiTheme.DrawText(new Rect(rect.x + 18f, rect.y + 58f, rect.width - 36f, 24f), message, labelStyle, shadowStyle);
+
+        Rect confirmRect = new Rect(rect.x + 18f, rect.yMax - 44f, (rect.width - 48f) * 0.5f, 28f);
+        Rect cancelRect = new Rect(confirmRect.xMax + 12f, confirmRect.y, confirmRect.width, confirmRect.height);
+        if (GeneMachineGuiTheme.DrawButton(confirmRect, "确定", true))
         {
             int slot = pendingDeleteSlot;
             showDeleteConfirm = false;
@@ -1096,12 +1076,11 @@ public class MainManager : MonoBehaviour
             SaveSystem.DeleteSlot(slot);
             RefreshSaveSlots(true);
         }
-        if (GUILayout.Button("取消", GUILayout.Height(30f)))
+        if (GeneMachineGuiTheme.DrawButton(cancelRect, "取消", false))
         {
             showDeleteConfirm = false;
             pendingDeleteSlot = -1;
         }
-        GUILayout.EndHorizontal();
     }
 
     void DrawSaveWindow(GUIStyle labelStyle, GUIStyle shadowStyle)
@@ -1120,14 +1099,14 @@ public class MainManager : MonoBehaviour
             height);
         lastSaveWindowRect = windowRect;
 
-        GUI.Box(windowRect, "");
+        GeneMachineGuiTheme.DrawPanel(windowRect);
+        GeneMachineGuiTheme.DrawGrid(windowRect, 28f);
 
         Rect titleRect = new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f);
-        GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "存档", shadowStyle);
-        GUI.Label(titleRect, "存档", labelStyle);
+        GeneMachineGuiTheme.DrawText(titleRect, "存档", labelStyle, shadowStyle);
 
         Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
-        if (!IsSaveModalActive() && GUI.Button(closeRect, "X"))
+        if (!IsSaveModalActive() && GeneMachineGuiTheme.DrawCloseButton(closeRect))
         {
             CloseSaveWindow();
             return;
@@ -1147,10 +1126,9 @@ public class MainManager : MonoBehaviour
                 break;
 
             Rect rowRect = new Rect(windowRect.x + padding, y, windowRect.width - padding * 2f, rowHeight);
-            GUI.Box(rowRect, "");
-
             SaveSlotInfo info = cachedSaveSlots != null && i < cachedSaveSlots.Length ? cachedSaveSlots[i] : null;
             bool hasData = info != null && info.HasData;
+            GeneMachineGuiTheme.DrawCard(rowRect, hasData);
             Rect actionRect = rowRect;
             if (hasData)
                 actionRect = new Rect(rowRect.x, rowRect.y, rowRect.width - deleteButtonWidth - 4f, rowRect.height);
@@ -1171,15 +1149,12 @@ public class MainManager : MonoBehaviour
                 string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
                 string timeText = string.Format("时间: {0}", savedAt);
                 string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
-                GUI.Label(new Rect(slotLabelRect.x + 1f, slotLabelRect.y + 1f, slotLabelRect.width, slotLabelRect.height), slotLabel, shadowStyle);
-                GUI.Label(slotLabelRect, slotLabel, labelStyle);
-                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
-                GUI.Label(timeRect, timeText, labelStyle);
-                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
-                GUI.Label(playRect, playText, labelStyle);
+                GeneMachineGuiTheme.DrawText(slotLabelRect, slotLabel, labelStyle, shadowStyle);
+                GeneMachineGuiTheme.DrawText(timeRect, timeText, labelStyle, shadowStyle);
+                GeneMachineGuiTheme.DrawText(playRect, playText, labelStyle, shadowStyle);
 
                 Rect deleteRect = new Rect(rowRect.xMax - deleteButtonWidth - 6f, rowRect.y + (rowHeight - 28f) * 0.5f, deleteButtonWidth, 28f);
-                if (!modalActive && GUI.Button(deleteRect, "删除"))
+                if (!modalActive && GeneMachineGuiTheme.DrawButton(deleteRect, "删除", false))
                 {
                     pendingDeleteSlot = i;
                     showDeleteConfirm = true;
@@ -1189,14 +1164,11 @@ public class MainManager : MonoBehaviour
             {
                 string emptyText = string.Format("槽位 {0}  ·  空槽位（点击保存）", i + 1);
                 Rect emptyRect = new Rect(rowRect.x + 12f, rowRect.y + 8f, rowRect.width - 24f, rowHeight - 16f);
-                GUI.Label(new Rect(emptyRect.x + 1f, emptyRect.y + 1f, emptyRect.width, emptyRect.height), emptyText, shadowStyle);
-                GUI.Label(emptyRect, emptyText, labelStyle);
+                GeneMachineGuiTheme.DrawText(emptyRect, emptyText, labelStyle, shadowStyle);
             }
 
             // 点击区域放在最后绘制；不用 GUIStyle.none（在部分版本无法接收点击）
-            Color prevBg = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(1f, 1f, 1f, 0.01f);
-            if (!modalActive && GUI.Button(actionRect, GUIContent.none))
+            if (!modalActive && GeneMachineGuiTheme.DrawTransparentClick(actionRect))
             {
                 if (hasData)
                 {
@@ -1208,8 +1180,6 @@ public class MainManager : MonoBehaviour
                     PerformSave(i);
                 }
             }
-            GUI.backgroundColor = prevBg;
-
             y += rowHeight + rowSpacing;
         }
     }

@@ -319,6 +319,7 @@ public static class SaveSystem
         if (size != SimulationConfig.EnvirSize)
             return false;
         ChemistryField.Allocate(size, ChemistrySystem.SubstanceCount);
+        TemperatureField.Allocate(size);
 
         int worldSeed = reader.ReadInt32();
         long totalSteps = reader.ReadInt64();
@@ -392,22 +393,28 @@ public static class SaveSystem
             bool alive = reader.ReadBoolean();
             bool isPlayer = reader.ReadBoolean();
 
-            Cell cell = new Cell(px, py, isPlayer);
+            Cell cell = CellPool.Rent(px, py, isPlayer);
             cell.energy = energy;
             cell.priority = priority;
             cell.alive = alive;
             ReadGeneList(reader, cell.MainGeneList);
             ReadGeneList(reader, cell.SubGeneList);
+            cell.InvalidateEnergyCostCache();
 
             if (alive)
             {
                 Envir env = envirData[px, py];
                 if (env != null && env.AddCell(cell))
                     allCells.Add(cell);
+                else
+                    CellPool.Return(cell);
             }
+            else
+                CellPool.Return(cell);
         }
 
         SimulationCore.StopCalculation();
+        CellPool.ReturnAllFromList(SimulationCore.AllCells);
         SimulationCore.EnvirData = envirData;
         SimulationCore.AllCells = allCells;
         SimulationCore.Rng = new System.Random(worldSeed);
@@ -424,6 +431,7 @@ public static class SaveSystem
         DeviceSystem.ApplySaveState(deviceState);
         if (manager != null)
             manager.ApplyViewState(viewData);
+        Gene.InvalidatePresenceListCache();
 
         return true;
     }

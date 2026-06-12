@@ -19,15 +19,52 @@ public class Cell
 
     public Cell(int px, int py, bool isPlayer = true)
     {
+        EnsureGeneArrays();
+        ResetForSpawn(px, py, isPlayer);
+    }
+
+    /// <summary>从池取出后重置为新生细胞状态（不清空数组，只清槽位）。</summary>
+    public void ResetForSpawn(int px, int py, bool isPlayer)
+    {
         this.px = px;
         this.py = py;
         this.isPlayer = isPlayer;
         this.energy = SimulationConfig.InitialEnergy;
-        MainGeneList = new Gene[SimulationConfig.MaxMainGene + 1]; // 下标从1开始
-        SubGeneList = new Gene[SimulationConfig.MaxSubGene + 1];   // struct数组自动初始化id=0
+        this.priority = 1;
+        this.alive = true;
+        InvalidateEnergyCostCache();
+        ClearGeneSlots();
+    }
+
+    /// <summary>归还池前：标记死亡并清空基因，避免脏数据残留。</summary>
+    public void PrepareForPool()
+    {
+        alive = false;
+        InvalidateEnergyCostCache();
+        ClearGeneSlots();
     }
 
     public void InvalidateEnergyCostCache() { _energyCostCache = -1; }
+
+    /// <summary>清空主干/自由基因槽（下标 0 未使用）。</summary>
+    public void ClearGeneSlots()
+    {
+        EnsureGeneArrays();
+        for (int i = 1; i < MainGeneList.Length; i++)
+            MainGeneList[i] = default;
+        for (int i = 1; i < SubGeneList.Length; i++)
+            SubGeneList[i] = default;
+    }
+
+    void EnsureGeneArrays()
+    {
+        int mainLen = SimulationConfig.MaxMainGene + 1;
+        int subLen = SimulationConfig.MaxSubGene + 1;
+        if (MainGeneList == null || MainGeneList.Length != mainLen)
+            MainGeneList = new Gene[mainLen];
+        if (SubGeneList == null || SubGeneList.Length != subLen)
+            SubGeneList = new Gene[subLen];
+    }
 
     /// <summary>主干+自由基因每回合能量消耗之和（带缓存）。</summary>
     public int GetTotalEnergyCost()

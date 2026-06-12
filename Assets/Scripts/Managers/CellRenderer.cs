@@ -1,6 +1,7 @@
 // CellRenderer.cs - 细胞渲染器，分批DrawMeshInstanced
-using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// 主线程渲染：地形/海拔底图、温度/光照/化学 overlay（GPU 合成）、细胞 Instancing 与视锥裁剪。
@@ -23,12 +24,15 @@ public class CellRenderer : MonoBehaviour
     private static readonly Color NPCColor = new Color(0.8f, 0.5f, 0.2f, 1f);
     private static readonly Color GridLineColor = new Color(0.4f, 0.4f, 0.4f, 0.5f);
 
-    // 渲染批次
-    private const int MAX_BATCH = 1023;
+    // 渲染批次：List 收集矩阵，batchBuffer 供 DrawMeshInstanced 复用
     private List<Matrix4x4> playerMatrices = new List<Matrix4x4>();
     private List<Matrix4x4> npcMatrices = new List<Matrix4x4>();
     private List<Matrix4x4> playerDimMatrices = new List<Matrix4x4>();
     private List<Matrix4x4> npcDimMatrices = new List<Matrix4x4>();
+    private Matrix4x4[] batchBuffer;
+    private int lastRenderedMatrixCount;
+    // 远距离视野：按格去重，每格只保留最高优先级细胞
+    private readonly Dictionary<long, Cell> viewportBestCells = new Dictionary<long, Cell>();
 
     // 网格线
     private Material lineMaterial;
@@ -57,25 +61,18 @@ public class CellRenderer : MonoBehaviour
     private Mesh bgMesh;
     private bool bgNormalDirty = true;
 
-    // 叠加层源纹理（CPU 写入编码/颜色）与 GPU 合成结果
-    private Texture2D overlayTexture;
-    private Texture2D chemicalOverlayTexture;
-    private RenderTexture compositeOverlayTexture;
+    // 叠加层：步进写入缓冲池，每帧只显示池中最新快照
+    private OverlayBufferPool overlayBufferPool;
     private Material compositeBlitMaterial;
     private Material compositeDisplayMaterial;
     private Mesh overlayMesh;
-    private bool overlayDirty = true;
-    private long lastOverlayStep = -1;
-    private float lastOverlayUpdateTime = 0f;
-    private Color32[] overlayPixels;
-    private Color32[] chemicalOverlayPixels;
+    private long lastOverlayRenderedStep = -1;
+    private long pendingOverlayStep = -1;
+    private bool overlayRebuildInProgress;
     private int overlayTextureSize;
     private int chemicalTextureSize;
     private int overlayDownsampleFactor = 1;
     private int chemicalDownsampleFactor = 1;
-    private int lastChemicalOverlayMask = 0;
-    private long lastChemicalOverlayRevision = -1;
-    private bool chemicalOverlayFullRebuild = true;
 
     void Start()
     {
@@ -97,21 +94,13 @@ public class CellRenderer : MonoBehaviour
 
     void OnDestroy()
     {
-        if (compositeOverlayTexture != null)
-        {
-            compositeOverlayTexture.Release();
-            compositeOverlayTexture = null;
-        }
+        overlayBufferPool?.Dispose();
+        overlayBufferPool = null;
     }
 
     public static void InvalidateChemicalOverlay()
     {
-        ChemicalOverlayRasterizer.RequestFullRebuild();
-        if (instance != null)
-        {
-            instance.overlayDirty = true;
-            instance.chemicalOverlayFullRebuild = true;
-        }
+        ChemicalOverlayRasterizer.NotifyMaskChanged();
     }
 
     void CreateCircleTexture()
@@ -168,27 +157,33 @@ public class CellRenderer : MonoBehaviour
 
     void CreateMaterials()
     {
-        Shader shader = Shader.Find("Sprites/Default");
+        Shader shader = Shader.Find("Custom/CellCircleInstanced");
+        if (shader == null)
+            shader = Shader.Find("Sprites/Default");
 
-        playerMaterial = new Material(shader);
-        playerMaterial.mainTexture = circleTexture;
-        playerMaterial.color = PlayerColor;
-
-        npcMaterial = new Material(shader);
-        npcMaterial.mainTexture = circleTexture;
-        npcMaterial.color = NPCColor;
+        playerMaterial = CreateCellMaterial(shader, PlayerColor);
+        npcMaterial = CreateCellMaterial(shader, NPCColor);
 
         Color playerDim = PlayerColor;
         playerDim.a = SimulationConfig.GeneViewDimAlpha;
-        playerDimMaterial = new Material(shader);
-        playerDimMaterial.mainTexture = circleTexture;
-        playerDimMaterial.color = playerDim;
+        playerDimMaterial = CreateCellMaterial(shader, playerDim);
 
         Color npcDim = NPCColor;
         npcDim.a = SimulationConfig.GeneViewDimAlpha;
-        npcDimMaterial = new Material(shader);
-        npcDimMaterial.mainTexture = circleTexture;
-        npcDimMaterial.color = npcDim;
+        npcDimMaterial = CreateCellMaterial(shader, npcDim);
+
+        int maxBatch = SimulationConfig.CellRenderMaxBatch;
+        batchBuffer = new Matrix4x4[Mathf.Max(1, maxBatch)];
+    }
+
+    /// <summary>创建启用 GPU Instancing 的细胞材质。</summary>
+    Material CreateCellMaterial(Shader shader, Color color)
+    {
+        var mat = new Material(shader);
+        mat.mainTexture = circleTexture;
+        mat.color = color;
+        mat.enableInstancing = true;
+        return mat;
     }
 
     void CreateLineMaterial()
@@ -363,7 +358,7 @@ public class CellRenderer : MonoBehaviour
 
         instance.ApplyBackgroundLightingSettings();
         instance.bgNormalDirty = true;
-        instance.overlayDirty = true;
+        instance.lastOverlayRenderedStep = -1;
         instance.lastBaseViewMode = (BaseViewMode)(-1);
         instance.lastOverlayViewMode = OverlayViewMode.None;
         instance.lastTerrainLightDirection = terrainLightDirection;
@@ -392,19 +387,14 @@ public class CellRenderer : MonoBehaviour
         int size = SimulationConfig.EnvirSize;
         overlayDownsampleFactor = Mathf.Max(1, SimulationConfig.OverlayDownsampleFactor);
         overlayTextureSize = Mathf.Max(1, size / overlayDownsampleFactor);
-        overlayTexture = new Texture2D(overlayTextureSize, overlayTextureSize, TextureFormat.RGBA32, false);
-        overlayTexture.filterMode = FilterMode.Bilinear;
-        overlayTexture.wrapMode = TextureWrapMode.Clamp;
-        overlayPixels = new Color32[overlayTextureSize * overlayTextureSize];
-
         chemicalDownsampleFactor = Mathf.Max(1, SimulationConfig.ChemicalOverlayDownsampleFactor);
         chemicalTextureSize = Mathf.Max(1, size / chemicalDownsampleFactor);
-        chemicalOverlayTexture = new Texture2D(chemicalTextureSize, chemicalTextureSize, TextureFormat.RGBA32, false);
-        chemicalOverlayTexture.filterMode = FilterMode.Bilinear;
-        chemicalOverlayTexture.wrapMode = TextureWrapMode.Clamp;
-        chemicalOverlayPixels = new Color32[chemicalTextureSize * chemicalTextureSize];
-        ChemicalOverlayRasterizer.Configure(chemicalOverlayPixels, chemicalTextureSize, chemicalDownsampleFactor);
-        chemicalOverlayFullRebuild = true;
+
+        overlayBufferPool = new OverlayBufferPool();
+        overlayBufferPool.Initialize(
+            SimulationConfig.OverlayBufferPoolSize,
+            overlayTextureSize,
+            chemicalTextureSize);
 
         float worldSize = size * SimulationConfig.PixelPerEnvir;
         overlayMesh = new Mesh();
@@ -428,11 +418,6 @@ public class CellRenderer : MonoBehaviour
 
     void CreateCompositeOverlay()
     {
-        compositeOverlayTexture = new RenderTexture(overlayTextureSize, overlayTextureSize, 0, RenderTextureFormat.ARGB32);
-        compositeOverlayTexture.filterMode = FilterMode.Bilinear;
-        compositeOverlayTexture.wrapMode = TextureWrapMode.Clamp;
-        compositeOverlayTexture.Create();
-
         Shader blitShader = Shader.Find("Custom/OverlayComposite");
         if (blitShader == null)
         {
@@ -445,7 +430,6 @@ public class CellRenderer : MonoBehaviour
         if (displayShader == null)
             displayShader = Shader.Find("Unlit/Transparent");
         compositeDisplayMaterial = new Material(displayShader);
-        compositeDisplayMaterial.mainTexture = compositeOverlayTexture;
         compositeDisplayMaterial.color = Color.white;
 
         ApplyCompositeBlitSettings();
@@ -660,10 +644,12 @@ public class CellRenderer : MonoBehaviour
         return Color.Lerp(startColor, endColor, localT);
     }
 
-    void UpdateOverlayTexture()
+    /// <summary>将温度/光照编码写入缓冲池槽的 CPU 像素。</summary>
+    void WriteTempLightOverlayPixels(Color32[] pixels)
     {
-        // CPU 写入降采样纹理，像素数 ≈ (EnvirSize/OverlayDownsampleFactor)²；比全图实时着色器采样便宜
-        if (SimulationCore.EnvirData == null) return;
+        if (SimulationCore.EnvirData == null || pixels == null)
+            return;
+
         int size = SimulationConfig.EnvirSize;
         int factor = Mathf.Max(1, overlayDownsampleFactor);
         int texSize = Mathf.Max(1, overlayTextureSize);
@@ -688,7 +674,10 @@ public class CellRenderer : MonoBehaviour
                 byte g = 0;
                 if (showTemp)
                 {
-                    float tempC = SimulationCore.KelvinToCelsius(env.Temp);
+                    float tempK = TemperatureField.IsAllocated
+                        ? TemperatureField.Get(envX, envY)
+                        : env.Temp;
+                    float tempC = SimulationCore.KelvinToCelsius(tempK);
                     float t01 = Mathf.InverseLerp(tempEncodeMin, tempEncodeMax, tempC);
                     r = (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(t01) * 255f), 0, 255);
                 }
@@ -697,83 +686,150 @@ public class CellRenderer : MonoBehaviour
                     float l01 = Mathf.InverseLerp(lightMin, lightMax, env.Light);
                     g = (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Clamp01(l01) * 255f), 0, 255);
                 }
-                overlayPixels[y * texSize + x] = new Color32(r, g, 0, overlayAlpha);
+                pixels[y * texSize + x] = new Color32(r, g, 0, overlayAlpha);
             }
         }
-
-        overlayTexture.SetPixels32(overlayPixels);
-        overlayTexture.Apply();
     }
 
-    void RebuildChemicalOverlayOnMainThread()
+    void WriteChemicalOverlayPixels(OverlayBufferPool.Slot slot, bool showChem)
     {
-        if (SimulationCore.EnvirData == null || chemicalOverlayPixels == null)
+        if (slot == null)
             return;
 
-        ChemicalOverlayRasterizer.RequestFullRebuild();
+        if (!showChem || SimulationCore.EnvirData == null)
+        {
+            ClearChemicalPixels(slot.ChemicalPixels);
+            return;
+        }
+
+        ChemicalOverlayRasterizer.Configure(slot.ChemicalPixels, chemicalTextureSize, chemicalDownsampleFactor);
         ChemicalOverlayRasterizer.Rebuild(SimulationCore.EnvirData);
-        UploadChemicalOverlayTexture();
-        lastChemicalOverlayMask = ChemistrySystem.ChemicalOverlayMask;
-        chemicalOverlayFullRebuild = false;
     }
 
-    void UploadChemicalOverlayTexture()
+    static void ClearChemicalPixels(Color32[] pixels)
     {
-        if (chemicalOverlayTexture == null || chemicalOverlayPixels == null)
+        if (pixels == null)
             return;
-
-        chemicalOverlayTexture.SetPixels32(chemicalOverlayPixels);
-        chemicalOverlayTexture.Apply(false);
+        for (int i = 0; i < pixels.Length; i++)
+            pixels[i] = new Color32(0, 0, 0, 0);
     }
 
-    void CompositeOverlayOnGpu()
+    void UploadOverlaySlotTextures(OverlayBufferPool.Slot slot)
     {
-        // 多叠加视图在此合成一张 RenderTexture，渲染阶段只 DrawMesh 一次
-        if (compositeBlitMaterial == null || compositeOverlayTexture == null)
+        if (slot == null)
             return;
 
-        compositeBlitMaterial.SetTexture("_TempLightTex", overlayTexture);
-        compositeBlitMaterial.SetTexture("_ChemTex", chemicalOverlayTexture);
+        slot.TempLightTexture.SetPixels32(slot.TempLightPixels);
+        slot.TempLightTexture.Apply(false);
+        slot.ChemicalTexture.SetPixels32(slot.ChemicalPixels);
+        slot.ChemicalTexture.Apply(false);
+    }
+
+    void CompositeOverlayToSlot(OverlayBufferPool.Slot slot)
+    {
+        if (compositeBlitMaterial == null || slot == null || slot.CompositeTexture == null)
+            return;
+
+        compositeBlitMaterial.SetTexture("_TempLightTex", slot.TempLightTexture);
+        compositeBlitMaterial.SetTexture("_ChemTex", slot.ChemicalTexture);
         ApplyCompositeBlitSettings();
 
         RenderTexture previous = RenderTexture.active;
-        Graphics.Blit(Texture2D.whiteTexture, compositeOverlayTexture, compositeBlitMaterial);
+        Graphics.Blit(Texture2D.whiteTexture, slot.CompositeTexture, compositeBlitMaterial);
         RenderTexture.active = previous;
-        overlayDirty = false;
     }
 
-    void UpdateCombinedOverlay()
+    /// <summary>模拟步推进时：写入缓冲池后备槽并发布为显示槽。</summary>
+    void RebuildOverlayBufferForStep(long currentStep)
     {
+        if (overlayBufferPool == null)
+            return;
+
+        OverlayBufferPool.Slot slot = overlayBufferPool.AcquireWriteSlot();
+        if (slot == null)
+            return;
+
         bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
         bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
         bool showChem = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0
             && ChemistrySystem.ChemicalOverlayMask != 0;
 
         if (showTemp || showLight)
-            UpdateOverlayTexture();
-        if (showChem)
-        {
-            if (chemicalOverlayFullRebuild)
-                RebuildChemicalOverlayOnMainThread();
-            else
-                UploadChemicalOverlayTexture();
-        }
+            WriteTempLightOverlayPixels(slot.TempLightPixels);
         else
-            ClearChemicalSourceTexture();
+        {
+            for (int i = 0; i < slot.TempLightPixels.Length; i++)
+                slot.TempLightPixels[i] = new Color32(0, 0, 0, 0);
+        }
 
-        CompositeOverlayOnGpu();
+        WriteChemicalOverlayPixels(slot, showChem);
+        UploadOverlaySlotTextures(slot);
+        CompositeOverlayToSlot(slot);
+
+        overlayBufferPool.CommitWrite(
+            slot,
+            currentStep,
+            currentOverlayViewMode,
+            ChemistrySystem.ChemicalOverlayMask);
+        lastOverlayRenderedStep = currentStep;
+        lastOverlayViewMode = currentOverlayViewMode;
     }
 
-    void ClearChemicalSourceTexture()
+    bool ShouldRebuildOverlayForStep(long currentStep)
     {
-        if (chemicalOverlayPixels == null || chemicalOverlayTexture == null)
+        int stepInterval = Mathf.Max(1, SimulationConfig.OverlayUpdateStepInterval);
+        return !overlayRebuildInProgress
+            && currentStep > lastOverlayRenderedStep
+            && currentStep - lastOverlayRenderedStep >= stepInterval;
+    }
+
+    bool ShouldDeferOverlayRebuild(bool isPanning)
+    {
+        return SimulationConfig.DeferOverlayRebuildWhilePanning && isPanning;
+    }
+
+    void TryScheduleOverlayRebuild(long step)
+    {
+        if (step < 0 || overlayRebuildInProgress)
             return;
 
-        for (int i = 0; i < chemicalOverlayPixels.Length; i++)
-            chemicalOverlayPixels[i] = new Color32(0, 0, 0, 0);
+        StartCoroutine(RebuildOverlayCoroutine(step));
+    }
 
-        chemicalOverlayTexture.SetPixels32(chemicalOverlayPixels);
-        chemicalOverlayTexture.Apply();
+    IEnumerator RebuildOverlayCoroutine(long step)
+    {
+        overlayRebuildInProgress = true;
+
+        int deferFrames = Mathf.Max(0, SimulationConfig.OverlayRebuildDeferFrames);
+        for (int i = 0; i < deferFrames; i++)
+            yield return null;
+
+        while (ShouldDeferOverlayRebuild(cameraController != null && cameraController.IsPanning))
+            yield return null;
+
+        RebuildOverlayBufferForStep(step);
+        overlayRebuildInProgress = false;
+        pendingOverlayStep = -1;
+    }
+
+    void UpdateOverlayForCurrentStep(bool isPanning)
+    {
+        long currentStep = SimulationCore.totalSteps;
+        int stepInterval = Mathf.Max(1, SimulationConfig.OverlayUpdateStepInterval);
+        bool stepDue = !overlayRebuildInProgress
+            && currentStep > lastOverlayRenderedStep
+            && currentStep - lastOverlayRenderedStep >= stepInterval;
+
+        if (stepDue)
+            pendingOverlayStep = System.Math.Max(pendingOverlayStep, currentStep);
+
+        if (pendingOverlayStep < 0 || overlayRebuildInProgress)
+            return;
+
+        if (ShouldDeferOverlayRebuild(isPanning))
+            return;
+
+        TryScheduleOverlayRebuild(pendingOverlayStep);
     }
 
     void LateUpdate()
@@ -801,68 +857,28 @@ public class CellRenderer : MonoBehaviour
         if (bgMesh != null && bgMaterial != null)
             Graphics.DrawMesh(bgMesh, Matrix4x4.identity, bgMaterial, 0);
 
-        // 叠加层：多视图在 GPU 合成一张图后统一渲染
-        // 刷新频率受 OverlayUpdateStepInterval / OverlayUpdateMinIntervalSeconds 节流，避免每帧扫 EnvirData
+        // 叠加层：仅在模拟步前进时写入缓冲池；每帧只绘制池中显示槽（不扫 EnvirData）
         bool showTemp = (currentOverlayViewMode & OverlayViewMode.Temperature) != 0;
         bool showLight = (currentOverlayViewMode & OverlayViewMode.Light) != 0;
         bool showChem = (currentOverlayViewMode & OverlayViewMode.Chemical) != 0
             && ChemistrySystem.ChemicalOverlayMask != 0;
         bool showAnyOverlay = showTemp || showLight || showChem;
 
+        bool isPanning = cameraController.IsPanning;
         if (showAnyOverlay)
         {
-            if (currentOverlayViewMode != lastOverlayViewMode)
-            {
-                overlayDirty = true;
-                lastOverlayViewMode = currentOverlayViewMode;
-            }
+            UpdateOverlayForCurrentStep(isPanning);
 
-            int currentMask = ChemistrySystem.ChemicalOverlayMask;
-            if (currentMask != lastChemicalOverlayMask)
+            if (overlayBufferPool != null && overlayBufferPool.HasDisplayBuffer
+                && overlayMesh != null && compositeDisplayMaterial != null)
             {
-                overlayDirty = true;
-                chemicalOverlayFullRebuild = true;
-            }
-
-            long currentStep = SimulationCore.GetResearchStepCounter();
-            int stepInterval = Mathf.Max(1, SimulationConfig.OverlayUpdateStepInterval);
-            float minInterval = Mathf.Max(0f, SimulationConfig.OverlayUpdateMinIntervalSeconds);
-            if (currentStep - lastOverlayStep >= stepInterval)
-            {
-                overlayDirty = true;
-                lastOverlayStep = currentStep;
-            }
-
-            long currentChemicalRevision = ChemistrySystem.GetChemicalRevision();
-            if (showChem && currentChemicalRevision != lastChemicalOverlayRevision)
-            {
-                lastChemicalOverlayRevision = currentChemicalRevision;
-                chemicalOverlayFullRebuild = true;
-                overlayDirty = true;
-            }
-
-            float now = Time.realtimeSinceStartup;
-            if (overlayDirty && (minInterval <= 0f || now - lastOverlayUpdateTime >= minInterval))
-            {
-                if (showTemp || showLight || chemicalOverlayFullRebuild)
-                    UpdateCombinedOverlay();
-                else if (showChem)
-                {
-                    UploadChemicalOverlayTexture();
-                    CompositeOverlayOnGpu();
-                    overlayDirty = false;
-                }
-                lastOverlayUpdateTime = now;
-            }
-
-            if (overlayMesh != null && compositeDisplayMaterial != null)
+                compositeDisplayMaterial.mainTexture = overlayBufferPool.DisplayComposite;
                 Graphics.DrawMesh(overlayMesh, Matrix4x4.identity, compositeDisplayMaterial, 0);
+            }
         }
         else
         {
             lastOverlayViewMode = OverlayViewMode.None;
-            lastChemicalOverlayMask = 0;
-            lastChemicalOverlayRevision = -1;
         }
 
         int minX, maxX, minY, maxY;
@@ -871,11 +887,15 @@ public class CellRenderer : MonoBehaviour
         int visibleGrids = (maxX - minX + 1) * (maxY - minY + 1);
         // 可见格过多时只画每格最高优先级细胞，避免 O(visibleGrids × CellNum) 的 DrawMesh 调用
         bool optimizedMode = visibleGrids > SimulationConfig.GridOptimizeThreshold;
+        if (cameraController.IsPanning && SimulationConfig.ForceOptimizedRenderWhilePanning)
+            optimizedMode = true;
 
-        RenderCells(minX, maxX, minY, maxY, optimizedMode);
+        RenderCells(minX, maxX, minY, maxY, visibleGrids, optimizedMode);
 
-        // 缓存网格线范围供OnRenderObject使用
-        drawGrid = visibleGrids < 2500;
+        // 缓存网格线范围供 OnRenderObject 使用；平移时跳过 GL 线段以减轻主线程负担
+        drawGrid = visibleGrids < SimulationConfig.GridDrawThreshold;
+        if (cameraController.IsPanning && SimulationConfig.SkipGridLinesWhilePanning)
+            drawGrid = false;
         cachedMinX = minX; cachedMaxX = maxX;
         cachedMinY = minY; cachedMaxY = maxY;
     }
@@ -891,40 +911,54 @@ public class CellRenderer : MonoBehaviour
     /// <summary>
     /// 渲染可见区域内的细胞。DrawMeshInstanced 每批最多 MAX_BATCH(1023) 个实例。
     /// </summary>
-    void RenderCells(int minX, int maxX, int minY, int maxY, bool optimizedMode)
+    void RenderCells(int minX, int maxX, int minY, int maxY, int visibleGrids, bool optimizedMode)
     {
         float ppe = SimulationConfig.PixelPerEnvir;
+        int listCapacity = Mathf.Max(256, lastRenderedMatrixCount);
+        EnsureMatrixListCapacity(listCapacity);
         playerMatrices.Clear();
         npcMatrices.Clear();
         playerDimMatrices.Clear();
         npcDimMatrices.Clear();
 
-        for (int x = minX; x <= maxX; x++)
+        // 远距离优化模式：可见格常为百万级空格子，逐格扫 EnvirData 极慢；改扫 AllCells 并视口裁剪
+        int cellListThreshold = SimulationConfig.CellListRenderThreshold;
+        bool useCellListPath = optimizedMode && visibleGrids > cellListThreshold;
+
+        if (useCellListPath)
         {
-            for (int y = minY; y <= maxY; y++)
+            RenderCellsFromCellList(minX, maxX, minY, maxY, ppe);
+        }
+        else
+        {
+            Envir[,] envirData = SimulationCore.EnvirData;
+            for (int x = minX; x <= maxX; x++)
             {
-                Envir env = SimulationCore.GetEnvir(x, y);
-                if (env == null || env.CellNum == 0) continue;
-
-                if (optimizedMode)
+                for (int y = minY; y <= maxY; y++)
                 {
-                    Cell best = env.GetHighestPriorityCell();
-                    if (best == null) continue;
+                    Envir env = envirData[x, y];
+                    if (env == null || env.CellNum == 0) continue;
 
-                    float worldX = (x - 0.5f) * ppe;
-                    float worldY = (y - 0.5f) * ppe;
-                    float scale = ppe * 0.8f;
+                    if (optimizedMode)
+                    {
+                        Cell best = env.GetHighestPriorityCell();
+                        if (best == null) continue;
 
-                    Matrix4x4 m = Matrix4x4.TRS(
-                        new Vector3(worldX, worldY, 0),
-                        Quaternion.identity,
-                        new Vector3(scale, scale, 1));
+                        float worldX = (x - 0.5f) * ppe;
+                        float worldY = (y - 0.5f) * ppe;
+                        float scale = ppe * 0.8f;
 
-                    AddCellRenderMatrix(best, m);
-                }
-                else
-                {
-                    RenderCellsInGrid(env, x, y, ppe);
+                        Matrix4x4 m = Matrix4x4.TRS(
+                            new Vector3(worldX, worldY, 0),
+                            Quaternion.identity,
+                            new Vector3(scale, scale, 1));
+
+                        AddCellRenderMatrix(best, m);
+                    }
+                    else
+                    {
+                        RenderCellsInGrid(env, x, y, ppe);
+                    }
                 }
             }
         }
@@ -934,6 +968,51 @@ public class CellRenderer : MonoBehaviour
         FlushBatches(npcDimMatrices, npcDimMaterial);
         FlushBatches(playerMatrices, playerMaterial);
         FlushBatches(npcMatrices, npcMaterial);
+
+        lastRenderedMatrixCount = playerMatrices.Count + npcMatrices.Count
+            + playerDimMatrices.Count + npcDimMatrices.Count;
+    }
+
+    void EnsureMatrixListCapacity(int capacity)
+    {
+        if (playerMatrices.Capacity < capacity) playerMatrices.Capacity = capacity;
+        if (npcMatrices.Capacity < capacity) npcMatrices.Capacity = capacity;
+        if (playerDimMatrices.Capacity < capacity) playerDimMatrices.Capacity = capacity;
+        if (npcDimMatrices.Capacity < capacity) npcDimMatrices.Capacity = capacity;
+    }
+
+    /// <summary>远距离优化路径：只遍历存活细胞，跳过大量空环境格。</summary>
+    void RenderCellsFromCellList(int minX, int maxX, int minY, int maxY, float ppe)
+    {
+        viewportBestCells.Clear();
+        List<Cell> allCells = SimulationCore.AllCells;
+        if (allCells == null)
+            return;
+
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            Cell cell = allCells[i];
+            if (cell == null || !cell.alive)
+                continue;
+            if (cell.px < minX || cell.px > maxX || cell.py < minY || cell.py > maxY)
+                continue;
+
+            long key = ((long)cell.px << 21) | (uint)cell.py;
+            if (!viewportBestCells.TryGetValue(key, out Cell best) || cell.priority > best.priority)
+                viewportBestCells[key] = cell;
+        }
+
+        float scale = ppe * 0.8f;
+        foreach (Cell cell in viewportBestCells.Values)
+        {
+            float worldX = (cell.px - 0.5f) * ppe;
+            float worldY = (cell.py - 0.5f) * ppe;
+            Matrix4x4 m = Matrix4x4.TRS(
+                new Vector3(worldX, worldY, 0),
+                Quaternion.identity,
+                new Vector3(scale, scale, 1));
+            AddCellRenderMatrix(cell, m);
+        }
     }
 
     /// <summary>
@@ -1006,13 +1085,22 @@ public class CellRenderer : MonoBehaviour
         }
     }
 
+    /// <summary>按 CellRenderMaxBatch 分批调用 DrawMeshInstanced，将 Draw Call 从 N 降至 ceil(N/1023)。</summary>
     void FlushBatches(List<Matrix4x4> matricesList, Material mat)
     {
-        if (matricesList.Count == 0) return;
+        int total = matricesList.Count;
+        if (total == 0 || mat == null) return;
 
-        for (int i = 0; i < matricesList.Count; i++)
+        int maxBatch = SimulationConfig.CellRenderMaxBatch;
+        if (batchBuffer == null || batchBuffer.Length < maxBatch)
+            batchBuffer = new Matrix4x4[Mathf.Max(1, maxBatch)];
+
+        for (int offset = 0; offset < total; offset += maxBatch)
         {
-            Graphics.DrawMesh(quadMesh, matricesList[i], mat, 0);
+            int count = Mathf.Min(maxBatch, total - offset);
+            for (int i = 0; i < count; i++)
+                batchBuffer[i] = matricesList[offset + i];
+            Graphics.DrawMeshInstanced(quadMesh, 0, mat, batchBuffer, count);
         }
     }
 

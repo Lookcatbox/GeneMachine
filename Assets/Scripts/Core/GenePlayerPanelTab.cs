@@ -41,14 +41,14 @@ public class GenePlayerPanelTab : PlayerPanelTabPage
 
         Rect clearRect = new Rect(rect.xMax - buttonWidth, rect.yMax - buttonHeight, buttonWidth, buttonHeight);
         GUI.enabled = filterId > 0;
-        if (GUI.Button(clearRect, "显示全部细胞"))
+        if (GeneMachineGuiTheme.DrawButton(clearRect, "显示全部细胞", filterId > 0))
             CellRenderer.geneFilterBaseId = 0;
         GUI.enabled = true;
     }
 
     void DrawGeneList(Rect rect, GUIStyle labelStyle, GUIStyle shadowStyle)
     {
-        GUI.Box(rect, "");
+        GeneMachineGuiTheme.DrawInset(rect);
 
         List<GenePresenceEntry> entries = Gene.BuildPresenceList();
         if (entries.Count == 0)
@@ -72,15 +72,13 @@ public class GenePlayerPanelTab : PlayerPanelTabPage
 
             Rect rowRect = new Rect(rect.x + 8f, y, rowWidth, rowHeight);
             bool selected = entry.baseId == filterId;
-            GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
-            if (GUI.Button(rowRect, ""))
+            if (GeneMachineGuiTheme.DrawButton(rowRect, "", selected))
             {
                 if (selected)
                     CellRenderer.geneFilterBaseId = 0;
                 else
                     CellRenderer.geneFilterBaseId = entry.baseId;
             }
-            GUI.backgroundColor = Color.white;
 
             float textX = rowRect.x + 8f;
             float textW = rowRect.width - 16f;
@@ -97,10 +95,8 @@ public class GenePlayerPanelTab : PlayerPanelTabPage
             GUIStyle nameShadow = new GUIStyle(shadowStyle);
             nameShadow.fontStyle = FontStyle.Bold;
 
-            GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f, nameRect.width, nameRect.height), nameText, nameShadow);
-            GUI.Label(nameRect, nameText, nameStyle);
-            GUI.Label(new Rect(countRect.x + 1f, countRect.y + 1f, countRect.width, countRect.height), countText, shadowStyle);
-            GUI.Label(countRect, countText, labelStyle);
+            DrawTextBlock(nameRect, nameText, nameStyle, nameShadow);
+            DrawTextBlock(countRect, countText, labelStyle, shadowStyle);
             DrawTextBlock(descRect, descText, labelStyle, shadowStyle);
 
             y += rowHeight + rowSpacing;

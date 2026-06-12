@@ -18,8 +18,7 @@ public abstract class PlayerPanelTabPage
     /// <summary>带阴影的文本绘制（标签 + 偏移阴影层）。</summary>
     protected void DrawTextBlock(Rect rect, string text, GUIStyle labelStyle, GUIStyle shadowStyle)
     {
-        GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, shadowStyle);
-        GUI.Label(rect, text, labelStyle);
+        GeneMachineGuiTheme.DrawText(rect, text, labelStyle, shadowStyle);
     }
 
     /// <summary>从源样式派生可换行的左上对齐样式。</summary>

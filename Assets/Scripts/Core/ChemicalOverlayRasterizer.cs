@@ -90,7 +90,7 @@ public static class ChemicalOverlayRasterizer
         Color32[] buffer = pixels;
         byte alpha = overlayAlpha;
 
-        Parallel.For(0, localTexSize, texY =>
+        Parallel.For(0, localTexSize, SimulationParallel.OverlayRasterOptions, texY =>
         {
             int envY = 1 + texY * factor + factor / 2;
             if (envY > size) envY = size;

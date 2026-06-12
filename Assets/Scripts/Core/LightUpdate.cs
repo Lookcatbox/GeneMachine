@@ -34,7 +34,7 @@ public static class LightUpdate
             weight *= weightDecay;
         }
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             float ny = size > 1 ? (y - 1f) / (size - 1f) : 0f;
             float latitudeRad = Mathf.Abs((ny - 0.5f) * Mathf.PI);

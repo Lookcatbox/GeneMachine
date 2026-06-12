@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 public class MainMenuManager : MonoBehaviour
 {
     private bool showLoadWindow = false;
-    private bool showSettingsTip = false;
+    private bool showSettingsWindow = false;
     private bool showDeleteConfirm = false;
     private int pendingDeleteSlot = -1;
     private SaveSlotInfo[] cachedSlots;
@@ -14,18 +14,14 @@ public class MainMenuManager : MonoBehaviour
     private Rect lastLoadWindowRect;
     private Rect lastModalBlockerRect;
     private Rect lastDeleteConfirmRect;
-    private GUIStyle loadModalLabelStyle;
-
-    private const int DeleteConfirmModalId = 92001;
-
     void OnGUI()
     {
         DrawMainButtons();
         DrawLoadWindow();
+        DrawSettingsWindow();
         if (showDeleteConfirm)
             DrawLoadDimOverlay();
         DrawDeleteConfirmModal();
-        DrawSettingsTip();
     }
 
     void OnDestroy()
@@ -36,33 +32,50 @@ public class MainMenuManager : MonoBehaviour
 
     void DrawMainButtons()
     {
-        if (showLoadWindow)
+        if (showLoadWindow || showSettingsWindow)
             return;
 
         float buttonWidth = Mathf.Min(320f, Screen.width * 0.5f);
         float buttonHeight = 54f;
         float spacing = 18f;
-        float totalHeight = buttonHeight * 3f + spacing * 2f;
+        float titleHeight = 118f;
+        float totalHeight = titleHeight + buttonHeight * 3f + spacing * 3f;
         float x = (Screen.width - buttonWidth) * 0.5f;
         float y = (Screen.height - totalHeight) * 0.5f;
 
-        if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "新游戏"))
+        Rect titleRect = new Rect(x - 54f, y, buttonWidth + 108f, titleHeight);
+        GeneMachineGuiTheme.DrawPanel(titleRect);
+        GeneMachineGuiTheme.DrawGrid(titleRect, 24f);
+        GeneMachineGuiTheme.DrawGeneMark(new Rect(titleRect.x + 18f, titleRect.y + 18f, 70f, 70f), 0.92f);
+
+        GUIStyle titleStyle = GeneMachineGuiTheme.BuildTitleStyle(34, TextAnchor.MiddleCenter);
+        GUIStyle titleShadowStyle = GeneMachineGuiTheme.BuildShadowStyle(titleStyle);
+        GUIStyle subtitleStyle = GeneMachineGuiTheme.BuildTitleStyle(14, TextAnchor.MiddleCenter);
+        subtitleStyle.normal.textColor = GeneMachineGuiTheme.MutedText;
+        GUIStyle subtitleShadowStyle = GeneMachineGuiTheme.BuildShadowStyle(subtitleStyle);
+
+        GeneMachineGuiTheme.DrawText(new Rect(titleRect.x + 92f, titleRect.y + 22f, titleRect.width - 116f, 40f), "GeneMachine", titleStyle, titleShadowStyle);
+        GeneMachineGuiTheme.DrawText(new Rect(titleRect.x + 92f, titleRect.y + 68f, titleRect.width - 116f, 22f), "基因自动机 · 细胞演化模拟", subtitleStyle, subtitleShadowStyle);
+
+        y += titleHeight + spacing;
+
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, buttonWidth, buttonHeight), "新游戏", true))
         {
             SaveSystem.ClearPendingLoadSlot();
             SceneManager.LoadScene(SimulationConfig.GameSceneName);
         }
         y += buttonHeight + spacing;
 
-        if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "读取游戏"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, buttonWidth, buttonHeight), "读取游戏", false))
         {
             showLoadWindow = true;
             RefreshSlots(true);
         }
         y += buttonHeight + spacing;
 
-        if (GUI.Button(new Rect(x, y, buttonWidth, buttonHeight), "设置"))
+        if (GeneMachineGuiTheme.DrawButton(new Rect(x, y, buttonWidth, buttonHeight), "设置", false))
         {
-            showSettingsTip = !showSettingsTip;
+            showSettingsWindow = true;
         }
     }
 
@@ -86,12 +99,8 @@ public class MainMenuManager : MonoBehaviour
 
         RefreshSlots(false);
 
-        GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
-        labelStyle.fontSize = 16;
-        labelStyle.normal.textColor = Color.white;
-
-        GUIStyle shadowStyle = new GUIStyle(labelStyle);
-        shadowStyle.normal.textColor = Color.black;
+        GUIStyle labelStyle = GeneMachineGuiTheme.BuildLabelStyle(16);
+        GUIStyle shadowStyle = GeneMachineGuiTheme.BuildShadowStyle(labelStyle);
 
         float width = Mathf.Min(760f, Screen.width * 0.85f);
         float height = Mathf.Min(520f, Screen.height * 0.85f);
@@ -102,14 +111,14 @@ public class MainMenuManager : MonoBehaviour
             height);
         lastLoadWindowRect = windowRect;
 
-        GUI.Box(windowRect, "");
+        GeneMachineGuiTheme.DrawPanel(windowRect);
+        GeneMachineGuiTheme.DrawGrid(windowRect, 28f);
 
         Rect titleRect = new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f);
-        GUI.Label(new Rect(titleRect.x + 1f, titleRect.y + 1f, titleRect.width, titleRect.height), "读取存档", shadowStyle);
-        GUI.Label(titleRect, "读取存档", labelStyle);
+        GeneMachineGuiTheme.DrawText(titleRect, "读取存档", labelStyle, shadowStyle);
 
         Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
-        if (!showDeleteConfirm && GUI.Button(closeRect, "X"))
+        if (!showDeleteConfirm && GeneMachineGuiTheme.DrawCloseButton(closeRect))
         {
             showLoadWindow = false;
             return;
@@ -128,10 +137,9 @@ public class MainMenuManager : MonoBehaviour
                 break;
 
             Rect rowRect = new Rect(windowRect.x + padding, y, windowRect.width - padding * 2f, rowHeight);
-            GUI.Box(rowRect, "");
-
             SaveSlotInfo info = cachedSlots != null && i < cachedSlots.Length ? cachedSlots[i] : null;
             bool hasData = info != null && info.HasData;
+            GeneMachineGuiTheme.DrawCard(rowRect, hasData);
 
             if (hasData)
             {
@@ -150,36 +158,29 @@ public class MainMenuManager : MonoBehaviour
                 string savedAt = string.IsNullOrEmpty(info.SavedAt) ? "--" : info.SavedAt;
                 string timeText = string.Format("时间: {0}", savedAt);
                 string playText = string.Format("时长: {0}", SaveSystem.FormatPlayTime(info.PlaySeconds));
-                GUI.Label(new Rect(slotLabelRect.x + 1f, slotLabelRect.y + 1f, slotLabelRect.width, slotLabelRect.height), slotLabel, shadowStyle);
-                GUI.Label(slotLabelRect, slotLabel, labelStyle);
-                GUI.Label(new Rect(timeRect.x + 1f, timeRect.y + 1f, timeRect.width, timeRect.height), timeText, shadowStyle);
-                GUI.Label(timeRect, timeText, labelStyle);
-                GUI.Label(new Rect(playRect.x + 1f, playRect.y + 1f, playRect.width, playRect.height), playText, shadowStyle);
-                GUI.Label(playRect, playText, labelStyle);
+                GeneMachineGuiTheme.DrawText(slotLabelRect, slotLabel, labelStyle, shadowStyle);
+                GeneMachineGuiTheme.DrawText(timeRect, timeText, labelStyle, shadowStyle);
+                GeneMachineGuiTheme.DrawText(playRect, playText, labelStyle, shadowStyle);
 
                 Rect deleteRect = new Rect(rowRect.xMax - deleteButtonWidth - 6f, rowRect.y + (rowHeight - 28f) * 0.5f, deleteButtonWidth, 28f);
-                if (!showDeleteConfirm && GUI.Button(deleteRect, "删除"))
+                if (!showDeleteConfirm && GeneMachineGuiTheme.DrawButton(deleteRect, "删除", false))
                 {
                     pendingDeleteSlot = i;
                     showDeleteConfirm = true;
                 }
 
-                Color prevBg = GUI.backgroundColor;
-                GUI.backgroundColor = new Color(1f, 1f, 1f, 0.01f);
-                if (!showDeleteConfirm && GUI.Button(loadRect, GUIContent.none))
+                if (!showDeleteConfirm && GeneMachineGuiTheme.DrawTransparentClick(loadRect))
                 {
                     SaveSystem.SetPendingLoadSlot(i);
                     SceneManager.LoadScene(SimulationConfig.GameSceneName);
                     return;
                 }
-                GUI.backgroundColor = prevBg;
             }
             else
             {
                 string emptyText = string.Format("槽位 {0}  ·  空槽位", i + 1);
                 Rect emptyRect = new Rect(rowRect.x + 12f, rowRect.y + 8f, rowRect.width - 24f, rowHeight - 16f);
-                GUI.Label(new Rect(emptyRect.x + 1f, emptyRect.y + 1f, emptyRect.width, emptyRect.height), emptyText, shadowStyle);
-                GUI.Label(emptyRect, emptyText, labelStyle);
+                GeneMachineGuiTheme.DrawText(emptyRect, emptyText, labelStyle, shadowStyle);
             }
 
             y += rowHeight + rowSpacing;
@@ -189,10 +190,7 @@ public class MainMenuManager : MonoBehaviour
     void DrawLoadDimOverlay()
     {
         lastModalBlockerRect = new Rect(0f, 0f, Screen.width, Screen.height);
-        Color previousColor = GUI.color;
-        GUI.color = new Color(0f, 0f, 0f, SimulationConfig.SaveModalOverlayAlpha);
-        GUI.Box(lastModalBlockerRect, GUIContent.none);
-        GUI.color = previousColor;
+        GeneMachineGuiTheme.DrawBox(lastModalBlockerRect, new Color(0f, 0f, 0f, SimulationConfig.SaveModalOverlayAlpha), Color.clear);
     }
 
     void DrawDeleteConfirmModal()
@@ -200,33 +198,25 @@ public class MainMenuManager : MonoBehaviour
         if (!showDeleteConfirm)
             return;
 
-        GUIStyle labelStyle = new GUIStyle(GUI.skin.label);
-        labelStyle.fontSize = 16;
-        labelStyle.normal.textColor = Color.white;
-        loadModalLabelStyle = labelStyle;
+        GUIStyle labelStyle = GeneMachineGuiTheme.BuildLabelStyle(16);
+        GUIStyle shadowStyle = GeneMachineGuiTheme.BuildShadowStyle(labelStyle);
 
         float width = 360f;
-        float height = 130f;
+        float height = 148f;
         Rect rect = new Rect(
             (Screen.width - width) * 0.5f,
             (Screen.height - height) * 0.5f,
             width,
             height);
 
-        int prevDepth = GUI.depth;
-        GUI.depth = 1000;
-        lastDeleteConfirmRect = GUI.ModalWindow(DeleteConfirmModalId, rect, DrawDeleteConfirmWindow, "删除存档");
-        GUI.depth = prevDepth;
-    }
-
-    void DrawDeleteConfirmWindow(int windowId)
-    {
-        GUIStyle labelStyle = loadModalLabelStyle ?? GUI.skin.label;
+        lastDeleteConfirmRect = rect;
+        GeneMachineGuiTheme.DrawModalShell(rect, "删除存档", labelStyle, shadowStyle);
         string message = string.Format("确定删除槽位 {0} 的存档？", pendingDeleteSlot + 1);
-        GUILayout.Label(message, labelStyle);
-        GUILayout.Space(12f);
-        GUILayout.BeginHorizontal();
-        if (GUILayout.Button("确定", GUILayout.Height(30f)))
+        GeneMachineGuiTheme.DrawText(new Rect(rect.x + 18f, rect.y + 58f, rect.width - 36f, 24f), message, labelStyle, shadowStyle);
+
+        Rect confirmRect = new Rect(rect.x + 18f, rect.yMax - 44f, (rect.width - 48f) * 0.5f, 28f);
+        Rect cancelRect = new Rect(confirmRect.xMax + 12f, confirmRect.y, confirmRect.width, confirmRect.height);
+        if (GeneMachineGuiTheme.DrawButton(confirmRect, "确定", true))
         {
             int slot = pendingDeleteSlot;
             showDeleteConfirm = false;
@@ -234,23 +224,75 @@ public class MainMenuManager : MonoBehaviour
             SaveSystem.DeleteSlot(slot);
             RefreshSlots(true);
         }
-        if (GUILayout.Button("取消", GUILayout.Height(30f)))
+        if (GeneMachineGuiTheme.DrawButton(cancelRect, "取消", false))
         {
             showDeleteConfirm = false;
             pendingDeleteSlot = -1;
         }
-        GUILayout.EndHorizontal();
     }
 
-    void DrawSettingsTip()
+    void DrawSettingsWindow()
     {
-        if (!showSettingsTip)
+        if (!showSettingsWindow)
             return;
 
-        float width = 280f;
-        float height = 60f;
-        Rect rect = new Rect((Screen.width - width) * 0.5f, Screen.height - height - 24f, width, height);
-        GUI.Box(rect, "设置暂未实现");
+        if (Input.GetKeyDown(KeyCode.Escape))
+            showSettingsWindow = false;
+
+        GUIStyle labelStyle = GeneMachineGuiTheme.BuildLabelStyle(16);
+        GUIStyle shadowStyle = GeneMachineGuiTheme.BuildShadowStyle(labelStyle);
+        GUIStyle sectionStyle = GeneMachineGuiTheme.BuildLabelStyle(14);
+        sectionStyle.fontStyle = FontStyle.Bold;
+        sectionStyle.normal.textColor = GeneMachineGuiTheme.Cyan;
+        GUIStyle sectionShadow = GeneMachineGuiTheme.BuildShadowStyle(sectionStyle);
+
+        float width = Mathf.Min(640f, Screen.width * 0.9f);
+        float height = 220f;
+        Rect windowRect = new Rect(
+            (Screen.width - width) * 0.5f,
+            (Screen.height - height) * 0.5f,
+            width,
+            height);
+
+        GeneMachineGuiTheme.DrawPanel(windowRect);
+        GeneMachineGuiTheme.DrawGrid(windowRect, 28f);
+
+        Rect titleRect = new Rect(windowRect.x + 16f, windowRect.y + 10f, windowRect.width - 64f, 24f);
+        GeneMachineGuiTheme.DrawText(titleRect, "设置", labelStyle, shadowStyle);
+
+        Rect closeRect = new Rect(windowRect.xMax - 34f, windowRect.y + 8f, 24f, 24f);
+        if (GeneMachineGuiTheme.DrawCloseButton(closeRect))
+            showSettingsWindow = false;
+
+        float padding = 18f;
+        Rect sectionRect = new Rect(windowRect.x + padding, windowRect.y + 44f, windowRect.width - padding * 2f, 22f);
+        GeneMachineGuiTheme.DrawText(sectionRect, "画面设置", sectionStyle, sectionShadow);
+
+        Rect rowLabelRect = new Rect(windowRect.x + padding, sectionRect.yMax + 10f, 120f, 22f);
+        GeneMachineGuiTheme.DrawText(rowLabelRect, "帧率上限", labelStyle, shadowStyle);
+
+        int[] presets = SimulationConfig.TargetFpsCapPresets;
+        int optionCount = presets.Length + 1;
+        float chipGap = 8f;
+        float chipHeight = 32f;
+        float chipsX = rowLabelRect.xMax + 8f;
+        float chipsWidth = windowRect.xMax - padding - chipsX;
+        float chipWidth = Mathf.Max(44f, (chipsWidth - chipGap * (optionCount - 1)) / optionCount);
+        float chipY = sectionRect.yMax + 8f;
+        int currentCap = DisplaySettings.CurrentFpsCap;
+
+        for (int i = 0; i < presets.Length; i++)
+        {
+            int cap = presets[i];
+            Rect chipRect = new Rect(chipsX + i * (chipWidth + chipGap), chipY, chipWidth, chipHeight);
+            if (GeneMachineGuiTheme.DrawButton(chipRect, cap.ToString(), cap == currentCap))
+                DisplaySettings.SetFpsCap(cap);
+        }
+
+        int infinityCap = SimulationConfig.TargetFpsCapInfinity;
+        Rect infinityRect = new Rect(chipsX + presets.Length * (chipWidth + chipGap), chipY, chipWidth, chipHeight);
+        if (GeneMachineGuiTheme.DrawButton(infinityRect, SimulationConfig.TargetFpsCapInfinityLabel, currentCap == infinityCap))
+            DisplaySettings.SetFpsCap(infinityCap);
     }
 
     void RefreshSlots(bool force)

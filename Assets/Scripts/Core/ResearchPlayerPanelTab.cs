@@ -36,16 +36,16 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
         string pointText = string.Format("研发点: {0}  每回合+{1}",
             SimulationCore.GetResearchPoints(),
             SimulationCore.GetLastResearchGainAmount());
-        GUI.Label(new Rect(headerRect.x + 1f, headerRect.y + 1f, headerRect.width, headerRect.height), pointText, titleShadowStyle);
-        GUI.Label(headerRect, pointText, titleStyle);
+        GeneMachineGuiTheme.DrawText(headerRect, pointText, titleStyle, titleShadowStyle);
 
         float infoPanelWidth = Mathf.Clamp(innerRect.width * 0.32f, 180f, 260f);
         float spacing = 12f;
         Rect treeRect = new Rect(innerRect.x, innerRect.y + headerHeight + spacing, innerRect.width - infoPanelWidth - spacing, innerRect.height - headerHeight - spacing);
         Rect infoRect = new Rect(treeRect.xMax + spacing, treeRect.y, infoPanelWidth, treeRect.height);
 
-        GUI.Box(treeRect, "");
-        GUI.Box(infoRect, "");
+        GeneMachineGuiTheme.DrawInset(treeRect);
+        GeneMachineGuiTheme.DrawInset(infoRect);
+        GeneMachineGuiTheme.DrawGrid(treeRect, 24f);
 
         string hoveredInfo = "将鼠标悬停在研发节点上以查看详细信息。";
 
@@ -69,7 +69,7 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
         Rect expandRect = new Rect(baseNodeRect.x + 6f, baseNodeRect.yMax + 6f, baseNodeRect.width - 12f, 24f);
         lastUpgradeButtonRect = expandRect;
         string expandLabel = showUpgradePopup ? "收起升级" : "展开升级";
-        if (GUI.Button(expandRect, expandLabel))
+        if (GeneMachineGuiTheme.DrawButton(expandRect, expandLabel, showUpgradePopup))
         {
             showUpgradePopup = !showUpgradePopup;
         }
@@ -107,7 +107,7 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
             Mathf.Min(popupHeight, treeRect.yMax - anchorRect.yMax - 12f));
 
         lastUpgradePopupRect = popupRect;
-        GUI.Box(popupRect, "");
+        GeneMachineGuiTheme.DrawPanel(popupRect);
 
         float padding = 8f;
         float columnSpacing = 10f;
@@ -123,7 +123,7 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
     private void DrawUpgradeColumn(Rect columnRect, string title, bool isLowUpgrade, Vector2 mousePos,
         ref string hoveredInfo, GUIStyle contentStyle, GUIStyle contentShadowStyle)
     {
-        GUI.Label(new Rect(columnRect.x + 4f, columnRect.y, columnRect.width - 8f, 20f), title, contentStyle);
+        GeneMachineGuiTheme.DrawText(new Rect(columnRect.x + 4f, columnRect.y, columnRect.width - 8f, 20f), title, contentStyle, contentShadowStyle);
 
         int currentLevel = isLowUpgrade ? SimulationCore.TempLowUpgradeLevel : SimulationCore.TempHighUpgradeLevel;
         int maxLevel = SimulationConfig.ResearchTempUpgradeMaxLevel;
@@ -165,7 +165,8 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
     private void DrawGeneNode(Rect rect, string name, string costText, string buttonLabel, bool buttonEnabled,
         GUIStyle contentStyle, GUIStyle contentShadowStyle, System.Action onClick = null)
     {
-        GUI.Box(rect, "");
+        bool active = buttonEnabled && onClick != null;
+        GeneMachineGuiTheme.DrawCard(rect, active);
         float lineHeight = Mathf.Max(20f, contentStyle.fontSize + 6f);
         float desiredGap = Mathf.Max(17f, contentStyle.fontSize * 0.9f + 3f);
         float topPadding = 8f;
@@ -181,14 +182,12 @@ public class ResearchPlayerPanelTab : PlayerPanelTabPage
         float buttonY = costRect.yMax + gap;
         Rect buttonRect = new Rect(rect.x + 8f, buttonY, rect.width - 16f, buttonHeight);
 
-        GUI.Label(new Rect(nameRect.x + 1f, nameRect.y + 1f, nameRect.width, nameRect.height), name, contentShadowStyle);
-        GUI.Label(nameRect, name, contentStyle);
-        GUI.Label(new Rect(costRect.x + 1f, costRect.y + 1f, costRect.width, costRect.height), costText, contentShadowStyle);
-        GUI.Label(costRect, costText, contentStyle);
+        GeneMachineGuiTheme.DrawText(nameRect, name, contentStyle, contentShadowStyle);
+        GeneMachineGuiTheme.DrawText(costRect, costText, contentStyle, contentShadowStyle);
 
         bool originalEnabled = GUI.enabled;
         GUI.enabled = buttonEnabled && onClick != null;
-        if (GUI.Button(buttonRect, buttonLabel) && onClick != null)
+        if (GeneMachineGuiTheme.DrawButton(buttonRect, buttonLabel, active) && onClick != null)
             onClick();
         GUI.enabled = originalEnabled;
     }

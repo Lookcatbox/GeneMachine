@@ -61,7 +61,7 @@ public static class ChemicalDiffusion
         float[,] amountBuffer = amountBuffers[substanceIndex];
         float[,] diffusionBuffer = diffusionBuffers[substanceIndex];
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             for (int x = 1; x <= size; x++)
             {
@@ -74,7 +74,7 @@ public static class ChemicalDiffusion
         });
 
         // 扩散核：center + strength × (neighborAvg - center)；strength 越小收敛越慢
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             int yDown = y == 1 ? size : y - 1;
             int yUp = y == size ? 1 : y + 1;
@@ -123,7 +123,7 @@ public static class ChemicalDiffusion
             }
         });
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             for (int x = 1; x <= size; x++)
             {
@@ -156,7 +156,7 @@ public static class ChemicalDiffusion
         int stride = ChemistryField.Stride;
 
         // SoA 路径省掉“采集”一遍全图，直接在连续物质数组上做邻域扩散。
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             int yDown = y == 1 ? size : y - 1;
             int yUp = y == size ? 1 : y + 1;
@@ -206,7 +206,7 @@ public static class ChemicalDiffusion
             }
         });
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             int rowBase = y * stride;
             for (int x = 1; x <= size; x++)

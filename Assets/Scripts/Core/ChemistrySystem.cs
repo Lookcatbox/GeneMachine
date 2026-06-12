@@ -240,7 +240,7 @@ public static class ChemistrySystem
         // 勿改回全图串行——400 万格 × 5 反应在单线程上约 10s/步。
         int size = SimulationConfig.EnvirSize;
         int substanceCount = SubstanceCount;
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             for (int x = 1; x <= size; x++)
             {

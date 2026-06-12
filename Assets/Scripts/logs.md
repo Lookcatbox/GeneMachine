@@ -1,5 +1,162 @@
 # 修改日志
 
+## 2026-06-12 缓解 CPU 争抢与叠加层步进尖刺
+
+### 根因
+- 模拟线程曾设为 `AboveNormal` 优先级，主动抢占主线程 CPU。
+- 模拟步内 `Parallel.For` 占满逻辑核；步进当帧主线程又全图重建叠加层。
+
+### 修改文件
+
+#### Assets/Scripts/Core/SimulationParallel.cs（新）
+- `SimulationOptions`：为模拟预留 `SimulationParallelReserveCores` 个逻辑核。
+- `OverlayRasterOptions`：主线程化学栅格化限制并行度。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `SimulationThreadPriority`（默认 BelowNormal）、`SimulationParallelReserveCores`、`DeferOverlayRebuildWhilePanning`、`OverlayRebuildDeferFrames`、`OverlayRasterMaxParallelism`。
+
+#### Assets/Scripts/Core/SimulationCore.cs
+- 模拟线程改可配置优先级；主要 `Parallel` 调用走 `SimulationParallel.SimulationOptions`。
+
+#### Assets/Scripts/Core/ChemistrySystem.cs / LightUpdate.cs / HeatDiffusion.cs / ChemicalDiffusion.cs / ChemicalOverlayRasterizer.cs
+- 模拟相关 `Parallel.For` 使用预留并行度；叠加栅格化限制线程数。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 叠加层重建改为协程：可延迟 N 帧、拖动时推迟至松手，步进当帧不再同步全图扫描。
+
+## 2026-06-12 修复远景拖动偶发回退到逐格扫描
+
+### 根因
+- `useCellListPath` 要求 `visibleGrids > aliveCellCount`；细胞数量上来后条件不成立，远景拖动又走 O(可见格数) 逐格扫 `EnvirData`。
+
+### 修改文件
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 优化模式下只要 `visibleGrids > CellListRenderThreshold` 即走 `AllCells` 视口裁剪。
+
+## 2026-06-12 修复帧率上限不生效
+
+### 根因
+- 项目当前画质为 Ultra（`vSyncCount=1`），Unity 在 vSync 开启时会**忽略** `Application.targetFrameRate`。
+- `Apply()` 仅在启动时调用一次，之后画质/vSync 可能被改回。
+- 编辑器 Game 视图对 `targetFrameRate` 遵守不严。
+
+### 修改文件
+
+#### Assets/Scripts/Core/DisplaySettingsApplicator.cs（新）
+- 常驻 `DontDestroyOnLoad`：每帧 `LateUpdate` 强制 `vSyncCount=0` 并重设 `targetFrameRate`。
+- 帧末协程按上限 `Thread.Sleep` 补足等待（受 `EnforceSoftwareFrameCap` 控制）。
+
+#### Assets/Scripts/Core/DisplaySettings.cs
+- `Apply` 时确保 Applicator 存在；新增 `PaceFrameAfterRender`。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `EnforceSoftwareFrameCap`（默认 true）。
+
+## 2026-06-12 主菜单设置：画面设置 / 帧率上限
+
+### 修改文件
+
+#### Assets/Scripts/Core/DisplaySettings.cs（新）
+- 帧率上限读写 PlayerPrefs，`Apply` 关闭 vSync 并设置 `Application.targetFrameRate`。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `TargetFpsCapPresets`、`TargetFpsCapInfinity`、`DefaultTargetFpsCap`、`TargetFpsCapInfinityLabel`。
+
+#### Assets/Scripts/Core/MainMenuManager.cs
+- 「设置」打开设置窗口；「画面设置」下提供 30/60/90/120/144/180/∞ 帧率上限选项。
+
+#### Assets/Scripts/Core/MainManager.cs
+- 游戏场景 `Awake` 时加载并应用画面设置。
+
+## 2026-06-12 叠加层仅随模拟步更新 + 缓冲池
+
+### 修改文件
+
+#### Assets/Scripts/Managers/OverlayBufferPool.cs（新）
+- 双缓冲（可配置 `OverlayBufferPoolSize`）：每槽含温度/光照像素、化学像素、源纹理与合成 RenderTexture。
+- `AcquireWriteSlot` / `CommitWrite` 分离写入与显示，主线程卡顿时仍绘制上一帧快照。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 移除按秒节流、`chemicalRevision` 每帧检测、`overlayDirty` 即时重建。
+- 仅以 `SimulationCore.totalSteps` 与 `OverlayUpdateStepInterval` 触发 `RebuildOverlayBufferForStep`。
+- 每帧只 `DrawMesh` 缓冲池显示槽，不再每帧扫 `EnvirData`。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 移除 `OverlayUpdateMinIntervalSeconds`。
+- 新增 `OverlayBufferPoolSize`（默认 2）。
+
+## 2026-06-12 修正：远距离缩放拖动卡顿（真正根因）
+
+### 更正
+- 上一版误判为「中距离缩放 + 非优化渲染」；用户实际在**远距离缩放**拖动时卡顿。
+- 远距离时 `visibleGrids` 常达数十万～数百万，虽已走优化模式（每格只画 1 个细胞），但仍**逐格扫描整个视野内的 EnvirData**，绝大多数是空格子，主线程每帧 O(可见格数) 导致 FPS 暴跌。
+
+### 修改文件
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `CellListRenderThreshold`：可见格超过此值且多于存活细胞数时，改走细胞列表渲染。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 新增 `RenderCellsFromCellList`：遍历 `AllCells` 并视口裁剪，按格去重保留最高优先级细胞，跳过空环境格扫描。
+
+## 2026-06-12 修复拖动地图帧率骤降（部分场景）
+
+### 根因（中/近距离）
+- 可见格 < `GridOptimizeThreshold` 时 `RenderCellsInGrid` 开销大；可见格 < 2500 时网格线 GL 绘制；基因页每帧 `BuildPresenceList`。
+
+### 修改文件
+
+#### Assets/Scripts/Managers/CameraController.cs
+- 新增 `IsPanning`。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `GridDrawThreshold`、`ForceOptimizedRenderWhilePanning`、`SkipGridLinesWhilePanning`。
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- 平移时强制优化渲染并跳过网格线；矩阵 List 预分配。
+
+#### Assets/Scripts/Entities/Gene.cs
+- `BuildPresenceList` 步数缓存；`InvalidatePresenceListCache`。
+
+## 2026-06-12 移除 UI 文字阴影与悬停上浮
+
+### 修改文件
+
+#### Assets/Scripts/Core/GeneMachineGuiTheme.cs
+- `DrawText` 改回单层 `GUI.Label`，去掉阴影层和悬停位移。
+- `DrawButton` / `DrawTransparentClick` 改用手动 `MouseDown` 检测，不再用 `GUI.Button` 叠在文字上。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 移除 `UiTextHoverLift`。
+
+## 2026-06-12 修复 UI 文字悬停上浮重影（已回退）
+
+### 修改文件
+
+#### Assets/Scripts/Core/GeneMachineGuiTheme.cs
+- `DrawText` 悬停时阴影与主字同步上移，只绘制一份，消除重影。
+- 新增 `hoverLift` 参数；按钮与导航页签文字启用悬停上浮。
+- `DrawButton` / `DrawTransparentClick` 改用全透明 `GUIStyle`，避免默认按钮皮肤叠字。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `UiTextHoverLift`（默认 -2），控制交互文字悬停上移像素。
+
+## 2026-06-12 细胞渲染改用真实 GPU Instancing
+
+### 修改文件
+
+#### Assets/Scripts/Managers/CellRenderer.cs
+- `FlushBatches` 由逐个 `Graphics.DrawMesh` 改为按批 `Graphics.DrawMeshInstanced`。
+- 复用 `batchBuffer` 数组；材质统一 `enableInstancing = true`。
+- 新增 `CreateCellMaterial` 辅助创建细胞材质。
+
+#### Assets/Shaders/CellCircleInstanced.shader
+- 新增支持 `#pragma multi_compile_instancing` 的透明圆点 shader，供细胞 Instancing 使用。
+
+#### Assets/Scripts/Core/SimulationConfig.cs
+- 新增 `CellRenderMaxBatch`（默认 1023），控制单批实例上限。
+
 ## 2026-06-04 去掉环境物质源、GPU 叠加合成、装置范围按类型
 
 ### 修改文件

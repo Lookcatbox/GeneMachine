@@ -180,16 +180,19 @@ namespace Multiply
                 Envir targetEnvir = envirData[cmd.targetX, cmd.targetY];
                 if (targetEnvir.CellNum >= targetEnvir.MaxCellNum) continue;
 
-                Cell child = new Cell(cmd.targetX, cmd.targetY, cmd.parent.isPlayer);
+                Cell child = CellPool.Rent(cmd.targetX, cmd.targetY, cmd.parent.isPlayer);
                 // struct Gene 直接值拷贝，无需Clone
                 for (int g = 1; g < cmd.parent.MainGeneList.Length; g++)
                     child.MainGeneList[g] = cmd.parent.MainGeneList[g];
                 for (int g = 1; g < cmd.parent.SubGeneList.Length; g++)
                     child.SubGeneList[g] = cmd.parent.SubGeneList[g];
                 child.priority = cmd.parent.priority;
+                child.InvalidateEnergyCostCache();
 
                 if (targetEnvir.AddCell(child))
                     allCells.Add(child);
+                else
+                    CellPool.Return(child);
             }
             Buffer.Clear();
         }

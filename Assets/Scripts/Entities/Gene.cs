@@ -94,15 +94,39 @@ public struct Gene
         return "暂无描述。";
     }
 
+    static List<GenePresenceEntry> cachedPresenceList;
+    static long cachedPresenceStep = -1;
+    static readonly HashSet<int> presenceScratch = new HashSet<int>();
+
+    /// <summary>新游戏/读档后清空基因统计缓存。</summary>
+    public static void InvalidatePresenceListCache()
+    {
+        cachedPresenceList = null;
+        cachedPresenceStep = -1;
+    }
+
     /// <summary>
     /// 统计全图细胞中各 baseId 基因的出现次数（按细胞计数，同一细胞含多个相同 baseId 只计一次）。
+    /// 结果按 <see cref="SimulationConfig.GeneListRefreshStepInterval"/> 步数缓存，避免 OnGUI 每帧 O(N) 扫描。
     /// </summary>
     public static List<GenePresenceEntry> BuildPresenceList()
     {
+        long step = SimulationCore.totalSteps;
+        int interval = SimulationConfig.GeneListRefreshStepInterval;
+        if (interval < 1)
+            interval = 1;
+
+        if (cachedPresenceList != null && cachedPresenceStep >= 0 && step - cachedPresenceStep < interval)
+            return cachedPresenceList;
+
         var counts = new Dictionary<int, int>();
         var cells = SimulationCore.AllCells;
         if (cells == null)
-            return new List<GenePresenceEntry>();
+        {
+            cachedPresenceList = new List<GenePresenceEntry>();
+            cachedPresenceStep = step;
+            return cachedPresenceList;
+        }
 
         for (int i = 0; i < cells.Count; i++)
         {
@@ -110,9 +134,9 @@ public struct Gene
             if (cell == null || !cell.alive)
                 continue;
 
-            var seen = new HashSet<int>();
-            CollectBaseIdsFromCell(cell, seen);
-            foreach (int baseId in seen)
+            presenceScratch.Clear();
+            CollectBaseIdsFromCell(cell, presenceScratch);
+            foreach (int baseId in presenceScratch)
             {
                 if (!counts.ContainsKey(baseId))
                     counts[baseId] = 0;
@@ -126,6 +150,9 @@ public struct Gene
             result.Add(new GenePresenceEntry { baseId = pair.Key, cellCount = pair.Value });
         }
         result.Sort((a, b) => a.baseId.CompareTo(b.baseId));
+
+        cachedPresenceList = result;
+        cachedPresenceStep = step;
         return result;
     }
 

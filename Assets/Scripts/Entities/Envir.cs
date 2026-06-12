@@ -7,7 +7,28 @@ public class Envir
 {
     public int X;                 // 环境格 x 坐标（用于 ChemistryField SoA 索引）
     public int Y;                 // 环境格 y 坐标
-    public float Temp;            // 温度
+    float tempFallback = SimulationConfig.DefaultTemp;
+
+    /// <summary>温度；SoA 已分配时读写 <see cref="TemperatureField"/>。</summary>
+    public float Temp
+    {
+        get
+        {
+            if (TemperatureField.IsAllocated && X > 0 && Y > 0)
+                return TemperatureField.Get(X, Y);
+            return tempFallback;
+        }
+        set
+        {
+            if (TemperatureField.IsAllocated && X > 0 && Y > 0)
+                TemperatureField.Set(X, Y, value);
+            else
+                tempFallback = value;
+        }
+    }
+
+    /// <summary>迁入 SoA 前或坐标未设置时的兜底温度。</summary>
+    internal float TempFallback => tempFallback;
     public int Light;             // 光照强度
     public int CellNum;           // 当前细胞数量
     public int MaxCellNum;        // 最大容纳细胞数
@@ -29,7 +50,7 @@ public class Envir
         MaxCellNum = maxCellNum;
         CellList = new Cell[maxCellNum + 1];
         CellNum = 0;
-        Temp = SimulationConfig.DefaultTemp;
+        tempFallback = SimulationConfig.DefaultTemp;
         Light = SimulationConfig.DefaultLight;
         ChemAmounts = ChemistryField.IsAllocated ? null : new float[Math.Max(0, ChemistrySystem.SubstanceCount)];
     }

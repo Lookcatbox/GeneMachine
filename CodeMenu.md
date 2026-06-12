@@ -30,14 +30,16 @@
 | Assets/Shaders/HeightNormalLit.shader | 地形底图+法线贴图的轻量光照 shader，支持高度与曲率增强。 |
 | Assets/Shaders/OverlayColorMap.shader | 温度/光照叠加层解码 shader（编码纹理 → 颜色）。 |
 | Assets/Shaders/OverlayComposite.shader | 多叠加视图 GPU 合成 shader：合并温度/光照/化学层为单张纹理。 |
+| Assets/Shaders/CellCircleInstanced.shader | 细胞圆点 GPU Instancing 材质：透明纹理 + 每材质固定颜色，供 DrawMeshInstanced 批量绘制。 |
 
 ## Assets/Scripts/Managers
 
 | 文件 | 简介 |
 | --- | --- |
 | Assets/Scripts/Managers/VideoPlaylistPlayer.cs | 视频播放列表组件，支持按索引播放、前后切换与循环。 |
-| Assets/Scripts/Managers/CellRenderer.cs | 细胞与地形渲染管理：背景、GPU 合成叠加层、网格线、视图模式与基因视图筛选渲染。 |
-| Assets/Scripts/Managers/CameraController.cs | 正交相机缩放与平移控制，并计算可见网格范围。 |
+| Assets/Scripts/Managers/CellRenderer.cs | 细胞与地形渲染管理：背景、GPU 合成叠加层、网格线、视图模式与基因视图筛选；叠加层仅随模拟步写入缓冲池。 |
+| Assets/Scripts/Managers/OverlayBufferPool.cs | 温度/光照/化学叠加层双缓冲池：步进写入、每帧显示最新快照。 |
+| Assets/Scripts/Managers/CameraController.cs | 正交相机缩放与平移控制，计算可见网格范围，暴露 `IsPanning` 供渲染减负。 |
 
 ## Assets/Scripts/Entities
 
@@ -56,6 +58,7 @@
 | Assets/Scripts/Core/TemperatureBehavior.cs | 温度行为：在耐受区间内给予能量奖励，并支持并行执行。 |
 | Assets/Scripts/Core/SimulationRenderSettingsData.cs | 渲染配置的序列化容器，支持与配置同步、哈希与应用。 |
 | Assets/Scripts/Core/SimulationCore.cs | 核心模拟线程：世界初始化、行为循环、科研、温度换算与事件系统调度。 |
+| Assets/Scripts/Core/SimulationParallel.cs | 模拟与叠加栅格化的 ParallelOptions，为 Unity 主线程预留 CPU 核心。 |
 | Assets/Scripts/Core/SimulationConfig.cs | 全局模拟与渲染参数配置中心。 |
 | Assets/Scripts/Core/ChemistryConfigData.cs | 化学 JSON 配置的数据结构定义。 |
 | Assets/Scripts/Core/ChemistryExpression.cs | 化学条件和动力方程的安全表达式解析与求值。 |
@@ -68,7 +71,9 @@
 | Assets/Scripts/Core/MultiplyBehavior.cs | 繁殖行为：并行预计算、按优先级生成子代。 |
 | Assets/Scripts/Core/MapCreater.cpp | 空文件，占位或预留原生地图生成实现。 |
 | Assets/Scripts/Core/MainManager.cs | Unity 主控脚本：启动模拟、UI 面板、存档/读档窗口（含删除与确认弹窗）。 |
-| Assets/Scripts/Core/MainMenuManager.cs | 主菜单：新游戏/读取/设置，读取存档列表与删除存档。 |
+| Assets/Scripts/Core/MainMenuManager.cs | 主菜单：新游戏/读取/设置（画面设置·帧率上限），读取存档列表与删除存档。 |
+| Assets/Scripts/Core/DisplaySettings.cs | 画面设置：帧率上限预设、PlayerPrefs 持久化并应用 Application.targetFrameRate。 |
+| Assets/Scripts/Core/DisplaySettingsApplicator.cs | 常驻组件：每帧关闭 vSync、重设 targetFrameRate，帧末软件 pacing。 |
 | Assets/Scripts/Core/SaveSystem.cs | 存档读写：槽位元数据、二进制世界状态、截图、删除与纹理释放。 |
 | Assets/Scripts/Core/LightUpdate.cs | 使用噪声与纬度曲线更新环境光照场。 |
 | Assets/Scripts/Core/LightBehavior.cs | 光照行为：根据光照值进行能量获取。 |

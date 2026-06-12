@@ -184,7 +184,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
         int cellY = context.DisplayEnvironmentY;
 
-        GUI.Box(rect, "");
+        GeneMachineGuiTheme.DrawInset(rect);
 
 
 
@@ -222,7 +222,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
             Rect clearRect = new Rect(rect.x + padding, actionY, clearWidth, buttonHeight);
 
-            if (GUI.Button(clearRect, "清除视图"))
+            if (GeneMachineGuiTheme.DrawButton(clearRect, "清除视图", false))
 
                 ChemistrySystem.SetChemicalOverlayMask(0);
 
@@ -230,7 +230,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
             Rect auditRect = new Rect(clearRect.xMax + 6f, actionY, auditWidth, buttonHeight);
 
-            if (GUI.Button(auditRect, "查看本回合变动"))
+            if (GeneMachineGuiTheme.DrawButton(auditRect, "查看本回合变动", false))
 
             {
 
@@ -252,7 +252,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
             GUI.enabled = false;
 
-            GUI.Button(hintRect, "查看本回合变动（请先选中物质）");
+            GeneMachineGuiTheme.DrawButton(hintRect, "查看本回合变动（请先选中物质）", false);
 
             GUI.enabled = true;
 
@@ -290,15 +290,9 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
 
 
-            GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
-
-            if (GUI.Button(rowRect, ""))
+            if (GeneMachineGuiTheme.DrawButton(rowRect, "", selected))
 
                 ChemistrySystem.ToggleChemicalOverlay(substance.Index);
-
-            GUI.backgroundColor = Color.white;
-
-
 
             Color substanceColor = substance.Color;
 
@@ -330,9 +324,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
             Rect textRect = new Rect(swatchRect.xMax + 8f, rowRect.y + 6f, rowRect.width - 40f, rowHeight - 8f);
 
-            GUI.Label(new Rect(textRect.x + 1f, textRect.y + 1f, textRect.width, textRect.height), rowText, shadowStyle);
-
-            GUI.Label(textRect, rowText, labelStyle);
+            DrawTextBlock(textRect, rowText, labelStyle, shadowStyle);
 
 
 
@@ -364,7 +356,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
 
 
-        GUI.Box(rect, "");
+        GeneMachineGuiTheme.DrawInset(rect);
 
 
 
@@ -372,7 +364,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
         Rect backRect = new Rect(rect.x + padding, rect.y + padding, 72f, 26f);
 
-        if (GUI.Button(backRect, "返回"))
+        if (GeneMachineGuiTheme.DrawButton(backRect, "返回", false))
 
             showStepChangeDetail = false;
 
@@ -398,7 +390,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
         Rect listRect = new Rect(rect.x + padding, titleRect.yMax + 8f, rect.width - padding * 2f, rect.yMax - titleRect.yMax - padding - 8f);
 
-        GUI.Box(listRect, "");
+        GeneMachineGuiTheme.DrawInset(listRect);
 
 
 
@@ -490,7 +482,7 @@ public class EnvironmentPlayerPanelTab : PlayerPanelTabPage
 
     {
 
-        GUI.Box(rect, "");
+        GeneMachineGuiTheme.DrawCard(rect, false);
 
 
 

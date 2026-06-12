@@ -75,7 +75,12 @@ public static class SimulationConfig
     public static int AltitudeBeach = 100;          // 沙滩高度上限（海平面 + 此值以下为沙滩）
 
     // 视野优化阈值
-    public static int GridOptimizeThreshold = 10000; // 可见格子超过此数时启用优化渲染
+    public static int GridOptimizeThreshold = 10000; // 可见格子超过此数时启用优化渲染（每格只画最高优先级细胞）
+    public static int CellListRenderThreshold = 10000; // 可见格超过此数且多于存活细胞数时，改扫 AllCells 而非逐格扫 EnvirData
+    public static int GridDrawThreshold = 2500;      // 可见格子低于此数时绘制网格线
+    public static bool ForceOptimizedRenderWhilePanning = true; // 平移地图时强制每格只画最高优先级细胞（中距离缩放）
+    public static bool SkipGridLinesWhilePanning = true;          // 平移地图时跳过网格线 GL 绘制（近距离缩放）
+    public static int CellRenderMaxBatch = 1023;     // DrawMeshInstanced 单批实例上限（DX11 常量缓冲约 1023）
 
     // 地形生成
     public static float NoiseBaseScale = 0.00150f;       // 最低频噪声缩放（大陆轮廓）
@@ -139,8 +144,15 @@ public static class SimulationConfig
     public static float AltitudeContourDarken = 0.28f; // 等高线边缘加深强度
     public static int OverlayDownsampleFactor = 2;  // 温度/光照叠加层降采样（越大越快）；像素数 ≈ (EnvirSize/factor)²
     public static int ChemicalOverlayDownsampleFactor = 4; // 化学叠加专用降采样（可大于 OverlayDownsampleFactor 以减负）
-    public static int OverlayUpdateStepInterval = 1; // 叠加层最少每隔多少模拟步更新一次
-    public static float OverlayUpdateMinIntervalSeconds = 0.01f; // 叠加层最短刷新间隔（秒）
+    public static int OverlayUpdateStepInterval = 1; // 叠加层每隔多少模拟步更新一次（仅步数触发，不用时间节流）
+    public static int OverlayBufferPoolSize = 2;   // 叠加层缓冲池大小（至少 2，乒乓写入/显示）
+    public static bool DeferOverlayRebuildWhilePanning = true; // 拖动地图时推迟叠加层重建，松手后再刷
+    public static int OverlayRebuildDeferFrames = 1;           // 步进触发后延迟 N 帧再重建，错开模拟尖刺
+    public static int OverlayRasterMaxParallelism = 2;         // 主线程化学叠加栅格化的最大并行线程数
+
+    // 模拟线程 CPU 争抢控制
+    public static SimulationThreadPriorityKind SimulationThreadPriority = SimulationThreadPriorityKind.BelowNormal;
+    public static int SimulationParallelReserveCores = 1;      // 模拟 Parallel 时为 Unity 主线程预留的逻辑核数
     public static float OverlayTempEncodeMin = -40f; // 温度叠加编码下限（摄氏，映射到 R 通道）
     public static float OverlayTempEncodeMax = 35f;  // 温度叠加编码上限（摄氏，映射到 R 通道）
 
@@ -167,6 +179,13 @@ public static class SimulationConfig
     public static int ResearchDeviceBaseCost = 10000;        // 科研装置首次制造成本（研发点）
     public static int ResearchDeviceCostMultiplier = 2;      // 科研装置制造成本递增倍率
     public static int ResearchDeviceGainPerCell = 1;           // 科研装置覆盖格内每个细胞提供的研发点
+
+    // 画面设置
+    public static readonly int[] TargetFpsCapPresets = { 30, 60, 90, 120, 144, 180 };
+    public static int TargetFpsCapInfinity = -1;               // 帧率上限「无限制」时传给 Application.targetFrameRate 的值
+    public static int DefaultTargetFpsCap = 60;              // 默认帧率上限
+    public static string TargetFpsCapInfinityLabel = "∞";    // 无限制选项显示文案
+    public static bool EnforceSoftwareFrameCap = true;       // 帧末主动等待，弥补编辑器内 targetFrameRate 不可靠
 
     // 存档
     public static int SaveSlotCount = 6;                     // 存档槽位数量
@@ -285,4 +304,12 @@ public static class SimulationConfig
     public static float ChemTempMinR5 = 10f;                  // R5 反应最低温度（摄氏）
     public static float ChemTempMaxR5 = 75f;                  // R5 反应最高温度（摄氏）
     public static int ChemLightMinR5 = 20;                    // R5 反应最低光照
+}
+
+/// <summary>后台模拟线程优先级（相对系统默认线程）。</summary>
+public enum SimulationThreadPriorityKind
+{
+    BelowNormal = 0,
+    Normal = 1,
+    AboveNormal = 2
 }

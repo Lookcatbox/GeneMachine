@@ -71,6 +71,7 @@ public static class SimulationCore
         int size = SimulationConfig.EnvirSize;
         ChemistrySystem.Init();
         ChemistryField.Allocate(size, ChemistrySystem.SubstanceCount);
+        TemperatureField.Allocate(size);
         // 分配 (size+2)² 个 Envir 对象；400 万格时内存与初始化耗时显著，但仅开局一次
         EnvirData = new Envir[size + 2, size + 2];
         for (int x = 1; x <= size; x++)
@@ -82,7 +83,7 @@ public static class SimulationCore
                 EnvirData[x, y] = env;
             }
         }
-        AllCells.Clear();
+        CellPool.ReturnAllFromList(AllCells);
         // 生成地形（柏林噪声 + 侵蚀 + 河流）
         TerrainGenerator.Generate(EnvirData, SimulationConfig.WorldSeed);
         ChemistrySystem.ResetOverlayMask();
@@ -125,7 +126,7 @@ public static class SimulationCore
                 if (env.Topography == 0) continue;
                 if (env.Temp < baseMinTemp || env.Temp > baseMaxTemp) continue;
 
-                Cell cell = new Cell(px, py, true);
+                Cell cell = CellPool.Rent(px, py, true);
                 Species.InitPlayerCell(cell);
                 if (env.AddCell(cell))
                 {
@@ -133,6 +134,7 @@ public static class SimulationCore
                     placed = true;
                     break;
                 }
+                CellPool.Return(cell);
             }
 
             if (!placed)
@@ -145,13 +147,15 @@ public static class SimulationCore
                     if (env.Topography == 0) continue;
                     if (env.Temp < baseMinTemp || env.Temp > baseMaxTemp) continue;
 
-                    Cell cell = new Cell(px, py, true);
+                    Cell cell = CellPool.Rent(px, py, true);
                     Species.InitPlayerCell(cell);
                     if (env.AddCell(cell))
                     {
                         AllCells.Add(cell);
                         placed = true;
                     }
+                    else
+                        CellPool.Return(cell);
                 }
             }
 
@@ -164,13 +168,15 @@ public static class SimulationCore
                     Envir env = EnvirData[px, py];
                     if (env.Topography == 0) continue;
 
-                    Cell cell = new Cell(px, py, true);
+                    Cell cell = CellPool.Rent(px, py, true);
                     Species.InitPlayerCell(cell);
                     if (env.AddCell(cell))
                     {
                         AllCells.Add(cell);
                         placed = true;
                     }
+                    else
+                        CellPool.Return(cell);
                 }
             }
         }
@@ -192,10 +198,12 @@ public static class SimulationCore
                 px = Math.Max(1, Math.Min(size, px));
                 py = Math.Max(1, Math.Min(size, py));
                 if (EnvirData[px, py].Topography == 0) continue;
-                Cell cell = new Cell(px, py, false);
+                Cell cell = CellPool.Rent(px, py, false);
                 Species.InitNPCCell(cell, Rng);
                 if (EnvirData[px, py].AddCell(cell))
                     AllCells.Add(cell);
+                else
+                    CellPool.Return(cell);
             }
         }
             ConvertEnvironmentTempToKelvin();
@@ -206,6 +214,7 @@ public static class SimulationCore
         Death.Behavior.Init();
 
         aliveCellCount = AllCells.Count;
+        Gene.InvalidatePresenceListCache();
     }
 
     /// <summary>新游戏：InitWorld 后启动后台模拟线程。</summary>
@@ -216,7 +225,7 @@ public static class SimulationCore
         isRunning = true;
         isPaused = false;
         simulationThread = new Thread(CalculationLoop);
-        simulationThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+        simulationThread.Priority = ResolveSimulationThreadPriority();
         simulationThread.IsBackground = true;
         simulationThread.Start();
     }
@@ -233,14 +242,28 @@ public static class SimulationCore
 
         ChemistrySystem.Init();
         ChemistryField.EnsureAllocatedFromEnvirData(EnvirData);
+        TemperatureField.EnsureAllocatedFromEnvirData(EnvirData);
         GeneMutationTable.Init();
         EventSystem.Init();
         isRunning = true;
         isPaused = false;
         simulationThread = new Thread(CalculationLoop);
-        simulationThread.Priority = System.Threading.ThreadPriority.AboveNormal;
+        simulationThread.Priority = ResolveSimulationThreadPriority();
         simulationThread.IsBackground = true;
         simulationThread.Start();
+    }
+
+    static System.Threading.ThreadPriority ResolveSimulationThreadPriority()
+    {
+        switch (SimulationConfig.SimulationThreadPriority)
+        {
+            case SimulationThreadPriorityKind.AboveNormal:
+                return System.Threading.ThreadPriority.AboveNormal;
+            case SimulationThreadPriorityKind.Normal:
+                return System.Threading.ThreadPriority.Normal;
+            default:
+                return System.Threading.ThreadPriority.BelowNormal;
+        }
     }
 
     static bool IsSimulationShutdownException(Exception ex)
@@ -262,7 +285,7 @@ public static class SimulationCore
 
     private static void CalculationLoop()
     {
-        // 独立后台线程驱动模拟；SimulateOneStep 内部再 Parallel，避免与 Unity 主线程争用
+        // 独立后台线程驱动模拟；线程优先级与 Parallel 并行度见 SimulationConfig / SimulationParallel
         ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
         timer.Reset();
         timer.Start();
@@ -344,7 +367,7 @@ public static class SimulationCore
         // 不再排序AllCells —— 各行为Pre独立于遍历顺序，Multiply.Apply自行排序缓冲区
         // 原Sort O(N log N) 在100万细胞时约占50%时间，移除后直接翻倍
 
-        Parallel.Invoke(
+        Parallel.Invoke(SimulationParallel.SimulationOptions,
             () => Multiply.Behavior.Pre(),
             () => Temperature.Behavior.Pre(),
             () => Light.Behavior.Pre(),
@@ -360,7 +383,7 @@ public static class SimulationCore
         int count = allCells.Count;
         if (count > 0)
         {
-            Parallel.ForEach(Partitioner.Create(0, count), range =>
+            Parallel.ForEach(Partitioner.Create(0, count), SimulationParallel.SimulationOptions, range =>
             {
                 if (ThreadRng == null)
                     ThreadRng = new Random(Interlocked.Increment(ref _rngSeedCounter));
@@ -399,7 +422,7 @@ public static class SimulationCore
         {
             for (int x = 1; x <= size; x += stride)
             {
-                float temp = EnvirData[x, y].Temp;
+                float temp = TemperatureField.Get(x, y);
                 if (temp < minTemp)
                 {
                     minTemp = temp;
@@ -500,7 +523,7 @@ public static class SimulationCore
         float invAltitudeRange = 1f / Mathf.Max(1f, SimulationConfig.AltitudeMax - SimulationConfig.AltitudeMin);
         float[,] temperatureField = new float[size + 2, size + 2];
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             float latitude01 = 1f - Mathf.Abs(((y - 1f) / Mathf.Max(1f, size - 1f)) * 2f - 1f);
             float latitudeLight = Mathf.Lerp(
@@ -602,7 +625,7 @@ public static class SimulationCore
             for (int pass = 0; pass < smoothingPasses; pass++)
             {
                 // 每轮平滑再扫一遍全图；passes 增大时开销线性增加
-                Parallel.For(1, size + 1, y =>
+                Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
                 {
                     int yDown = y == 1 ? size : y - 1;
                     int yUp = y == size ? 1 : y + 1;
@@ -631,28 +654,21 @@ public static class SimulationCore
             }
         }
 
-        Parallel.For(1, size + 1, y =>
+        Parallel.For(1, size + 1, SimulationParallel.SimulationOptions, y =>
         {
             for (int x = 1; x <= size; x++)
             {
-                EnvirData[x, y].Temp = Mathf.RoundToInt(temperatureField[x, y]);
+                TemperatureField.Set(x, y, Mathf.RoundToInt(temperatureField[x, y]));
             }
         });
     }
 
     private static void ConvertEnvironmentTempToKelvin()
     {
-        if (EnvirData == null) return;
+        if (!TemperatureField.IsAllocated)
+            return;
 
-        int size = SimulationConfig.EnvirSize;
-        float offset = SimulationConfig.KelvinOffset;
-        for (int y = 1; y <= size; y++)
-        {
-            for (int x = 1; x <= size; x++)
-            {
-                EnvirData[x, y].Temp += offset;
-            }
-        }
+        TemperatureField.AddAll(SimulationConfig.KelvinOffset);
     }
 
     // O(N)清理：前向压缩代替逐个RemoveAt（原为O(N²)最坏情况）
@@ -677,6 +693,7 @@ public static class SimulationCore
                         break;
                     }
                 }
+                CellPool.Return(cell);
             }
         }
         if (writeIdx < AllCells.Count)

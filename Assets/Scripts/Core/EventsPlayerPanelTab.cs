@@ -26,7 +26,7 @@ public class EventsPlayerPanelTab : PlayerPanelTabPage
         DrawTextBlock(headerRect, header, titleStyle, contentShadowStyle);
 
         Rect listRect = new Rect(innerRect.x, innerRect.y + 34f, innerRect.width, innerRect.height - 34f);
-        GUI.Box(listRect, "");
+        GeneMachineGuiTheme.DrawInset(listRect);
 
         if (snapshots.Length == 0)
         {
@@ -72,7 +72,7 @@ public class EventsPlayerPanelTab : PlayerPanelTabPage
         GUIStyle titleStyle,
         GUIStyle titleShadowStyle)
     {
-        GUI.Box(cardRect, "");
+        GeneMachineGuiTheme.DrawCard(cardRect, false);
         Rect inner = new Rect(cardRect.x + 8f, cardRect.y + 6f, cardRect.width - 16f, cardRect.height - 12f);
 
         string titleLine = string.Format("#{0}  {1}", snapshot.instanceId, snapshot.title);

@@ -18,6 +18,9 @@ public class CameraController : MonoBehaviour
     private int lastScreenWidth;
     private int lastScreenHeight;
 
+    /// <summary>本帧是否正在平移（右键/中键拖拽或 WASD），供渲染器在平移时走轻量路径。</summary>
+    public bool IsPanning { get; private set; }
+
     void Start()
     {
         cam = GetComponent<Camera>();
@@ -35,6 +38,7 @@ public class CameraController : MonoBehaviour
 
     void Update()
     {
+        IsPanning = false;
         SyncCameraAspectIfNeeded();
         HandleZoom();
         HandlePan();
@@ -83,6 +87,7 @@ public class CameraController : MonoBehaviour
 
         if (isDragging)
         {
+            IsPanning = true;
             Vector3 delta = Input.mousePosition - lastMousePos;
             float scaleFactor = 2f * cam.orthographicSize / Screen.height;
             Vector3 move = new Vector3(-delta.x * scaleFactor, -delta.y * scaleFactor, 0);
@@ -101,6 +106,7 @@ public class CameraController : MonoBehaviour
 
         if (Mathf.Abs(h) > 0 || Mathf.Abs(v) > 0)
         {
+            IsPanning = true;
             float speed = panSpeed * cam.orthographicSize * Time.deltaTime;
             transform.position += new Vector3(h * speed, v * speed, 0);
         }

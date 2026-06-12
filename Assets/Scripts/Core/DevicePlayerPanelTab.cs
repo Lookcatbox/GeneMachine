@@ -20,8 +20,8 @@ public class DevicePlayerPanelTab : PlayerPanelTabPage
         Rect listRect = new Rect(contentRect.x + padding, contentRect.y + padding, contentRect.width - padding * 2f, listHeight - padding);
         Rect infoRect = new Rect(contentRect.x + padding, listRect.yMax + padding, contentRect.width - padding * 2f, contentRect.yMax - listRect.yMax - padding);
 
-        GUI.Box(listRect, "");
-        GUI.Box(infoRect, "");
+        GeneMachineGuiTheme.DrawInset(listRect);
+        GeneMachineGuiTheme.DrawInset(infoRect);
 
         DrawDeviceList(listRect, labelStyle, shadowStyle);
         DrawDeviceInfo(infoRect, contentStyle, contentShadowStyle);
@@ -39,25 +39,21 @@ public class DevicePlayerPanelTab : PlayerPanelTabPage
             DeviceType type = types[i];
             Rect rowRect = new Rect(rect.x + 6f, y, rect.width - 12f, rowHeight);
             bool selected = type.TypeId == selectedTypeId;
-            GUI.backgroundColor = selected ? new Color(0.24f, 0.34f, 0.52f) : new Color(0.22f, 0.22f, 0.22f);
-            if (GUI.Button(rowRect, ""))
+            if (GeneMachineGuiTheme.DrawButton(rowRect, "", selected))
                 selectedTypeId = type.TypeId;
-            GUI.backgroundColor = Color.white;
 
             Rect iconRect = new Rect(rowRect.x + 6f, rowRect.y + (rowHeight - iconSize) * 0.5f, iconSize, iconSize);
             if (type.Icon != null)
                 GUI.DrawTexture(iconRect, type.Icon, ScaleMode.StretchToFill);
 
             float textX = iconRect.xMax + 8f;
-            GUI.Label(new Rect(textX + 1f, rowRect.y + 6f, rowRect.width - 80f, rowHeight), type.Name, shadowStyle);
-            GUI.Label(new Rect(textX, rowRect.y + 5f, rowRect.width - 80f, rowHeight), type.Name, labelStyle);
+            DrawTextBlock(new Rect(textX, rowRect.y + 5f, rowRect.width - 80f, rowHeight), type.Name, labelStyle, shadowStyle);
 
             int count = DeviceSystem.GetDeviceCount(type.TypeId);
             string countText = count.ToString();
             Vector2 size = labelStyle.CalcSize(new GUIContent(countText));
             Rect countRect = new Rect(rowRect.xMax - size.x - 10f, rowRect.y + 6f, size.x + 2f, rowHeight);
-            GUI.Label(new Rect(countRect.x + 1f, countRect.y + 1f, countRect.width, countRect.height), countText, shadowStyle);
-            GUI.Label(countRect, countText, labelStyle);
+            DrawTextBlock(countRect, countText, labelStyle, shadowStyle);
 
             y += rowHeight + 4f;
             if (y > rect.yMax - rowHeight)
@@ -116,12 +112,12 @@ public class DevicePlayerPanelTab : PlayerPanelTabPage
         Rect craftRect = new Rect(placeRect.xMax + 12f, buttonY, buttonWidth, buttonHeight);
 
         GUI.enabled = DeviceSystem.GetDeviceCount(type.TypeId) > 0;
-        if (GUI.Button(placeRect, "放置"))
+        if (GeneMachineGuiTheme.DrawButton(placeRect, "放置", DeviceSystem.IsPlacing && DeviceSystem.PlacingTypeId == type.TypeId))
             DeviceSystem.BeginPlacement(type.TypeId);
 
         bool canCraft = DeviceSystem.CanCraftDevice(type.TypeId);
         GUI.enabled = canCraft;
-        if (GUI.Button(craftRect, "制作"))
+        if (GeneMachineGuiTheme.DrawButton(craftRect, "制作", false))
             DeviceSystem.TryCraftDevice(type.TypeId);
         GUI.enabled = true;
     }
