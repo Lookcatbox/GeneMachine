@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GeneMachine Logo Concepts</title>
+  <style>
+    :root {
+      --bg: #081012;
+      --panel: #0f1b1e;
+      --panel-2: #132326;
+      --text: #e8fff7;
+      --muted: #88a49d;
+      --cyan: #3ee7ff;
+      --green: #9dff4d;
+      --amber: #ffbc42;
+      --red: #ff5d73;
+      --line: rgba(232, 255, 247, 0.13);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 12%, rgba(62, 231, 255, 0.18), transparent 30%),
+        radial-gradient(circle at 78% 26%, rgba(157, 255, 77, 0.13), transparent 32%),
+        linear-gradient(135deg, #060b0d 0%, var(--bg) 52%, #0b1510 100%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    .page {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 44px 0 56px;
+    }
+
+    .brief {
+      display: grid;
+      grid-template-columns: 1.3fr 0.7fr;
+      gap: 22px;
+      margin-bottom: 28px;
+    }
+
+    .brief-card,
+    .concept {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(19, 35, 38, 0.92), rgba(10, 18, 20, 0.92));
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(14px);
+    }
+
+    .brief-card {
+      border-radius: 28px;
+      padding: 28px;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--green);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(38px, 7vw, 86px);
+      line-height: 0.9;
+      letter-spacing: -0.07em;
+    }
+
+    .machine {
+      color: transparent;
+      -webkit-text-stroke: 1.6px rgba(232, 255, 247, 0.78);
+      text-shadow: 0 0 32px rgba(62, 231, 255, 0.18);
+    }
+
+    .subtitle {
+      max-width: 680px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+
+    .notes {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .notes strong {
+      color: var(--text);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 22px;
+    }
+
+    .concept {
+      position: relative;
+      overflow: hidden;
+      min-height: 640px;
+      border-radius: 32px;
+      padding: 28px;
+    }
+
+    .concept::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(to bottom, black 0%, transparent 75%);
+    }
+
+    .concept > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .tag::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 16px var(--green);
+    }
+
+    .icon-wrap {
+      display: grid;
+      place-items: center;
+      height: 320px;
+      margin: 28px 0 20px;
+    }
+
+    svg {
+      width: 260px;
+      height: 260px;
+      overflow: visible;
+    }
+
+    .wordmark {
+      margin-top: 12px;
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -0.08em;
+      line-height: 0.95;
+    }
+
+    .wordmark span {
+      color: var(--green);
+    }
+
+    .caption {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .mini {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .mini-mark {
+      display: grid;
+      flex: 0 0 auto;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      border-radius: 14px;
+      background: #071012;
+      border: 1px solid var(--line);
+    }
+
+    .small-svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    .orbit,
+    .pulse,
+    .gear {
+      transform-origin: 130px 130px;
+      animation: spin 18s linear infinite;
+    }
+
+    .pulse {
+      animation: breathe 2.8s ease-in-out infinite;
+    }
+
+    .gear {
+      animation-duration: 28s;
+      animation-direction: reverse;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes breathe {
+      0%, 100% {
+        opacity: 0.62;
+        transform: scale(0.98);
+      }
+      50% {
+        opacity: 1;
+        transform: scale(1.03);
+      }
+    }
+
+    .palette {
+      display: flex;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .swatch {
+      width: 34px;
+      height: 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    @media (max-width: 980px) {
+      .brief,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .concept {
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="brief" aria-label="设计说明">
+      <div class="brief-card">
+        <p class="eyebrow">Logo Exploration · HTML Vector Draft</p>
+        <h1>Gene<span class="machine">Machine</span></h1>
+        <p class="subtitle">
+          假设：这是一个围绕“基因自动机、细胞演化、能量与环境反馈”的 Unity 策略/模拟项目。
+          因此图标不走医疗实验室路线，而是把细胞膜、基因节点、自动机网格和机械结构合成一个游戏感品牌符号。
+        </p>
+      </div>
+      <div class="brief-card">
+        <p class="eyebrow">Design Constraints</p>
+        <ul class="notes">
+          <li><strong>小尺寸可读：</strong>每个方案都有 46px 缩略版测试。</li>
+          <li><strong>避免泛化：</strong>弱化常见双螺旋，强调“基因系统在运行”。</li>
+          <li><strong>游戏气质：</strong>深色底、荧光能量色、模块化轮廓。</li>
+        </ul>
+        <div class="palette" aria-label="配色">
+          <span class="swatch" style="background:#081012"></span>
+          <span class="swatch" style="background:#3ee7ff"></span>
+          <span class="swatch" style="background:#9dff4d"></span>
+          <span class="swatch" style="background:#ffbc42"></span>
+          <span class="swatch" style="background:#ff5d73"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="GeneMachine logo concepts">
+      <article class="concept">
+        <span class="tag">A · Cellular Automata</span>
+        <div class="icon-wrap">
+          <svg viewBox="0 0 260 260" role="img" aria-label="Cellular automata logo concept">
+            <defs>
+              <filter id="glow-cyan">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <path d="M130 18 L218 69 L218 171 L130 222 L42 171 L42 69 Z" fill="#0b191c" stroke="rgba(232,255,247,.22)" stroke-width="4" />
+            <g class="orbit" fill="none" stroke="rgba(62,231,255,.32)" stroke-width="3">
+              <path d="M130 39 C187 42 218 78 214 132 C209 187 176 215 122 211 C69 207 43 174 47 121 C51 69 78 37 130 39Z" />
+              <path d="M82 66 C131 28 199 62 204 120 C210 183 144 224 88 192 C35 162 31 105 82 66Z" />
+            </g>
+            <g filter="url(#glow-cyan)">
+              <circle cx="130" cy="130" r="52" fill="rgba(62,231,255,.08)" stroke="#3ee7ff" stroke-width="4" />
+              <path d="M91 151 C116 118 144 118 169 86" fill="none" stroke="#9dff4d" stroke-width="8" stroke-linecap="round" />
+              <path d="M91 109 C116 142 144 142 169 174" fill="none" stroke="#3ee7ff" stroke-width="8" stroke-linecap="round" />
+              <g fill="#081012" stroke="#e8fff7" stroke-width="3">
+                <circle cx="91" cy="151" r="9" />
+                <circle cx="109" cy="132" r="8" />
+                <circle cx="130" cy="130" r="10" />
+                <circle cx="151" cy="126" r="8" />
+                <circle cx="169" cy="86" r="9" />
+                <circle cx="91" cy="109" r="9" />
+                <circle cx="169" cy="174" r="9" />
+              </g>
+            </g>
+            <g fill="#ffbc42">
+              <rect x="65" y="75" width="14" height="14" rx="3" />
+              <rect x="183" y="128" width="14" height="14" rx="3" />
+              <rect x="116" y="193" width="14" height="14" rx="3" />
+            </g>
+          </svg>
+        </div>
+        <h2 class="wordmark">Gene<span>Machine</span></h2>
+        <p class="caption">
+          最“项目直觉”的版本：六边形像生命网格，也像自动机单元。中心不是完整 DNA，而是一段正在触发节点的基因路径。
+        </p>
+        <div class="mini">
+          <div class="mini-mark">
+            <svg class="small-svg" viewBox="0 0 260 260" aria-hidden="true">
+              <path d="M130 18 L218 69 L218 171 L130 222 L42 171 L42 69 Z" fill="#0b191c" stroke="#3ee7ff" stroke-width="16" />
+              <path d="M91 151 C116 118 144 118 169 86M91 109 C116 142 144 142 169 174" fill="none" stroke="#9dff4d" stroke-width="18" stroke-linecap="round" />
+            </svg>
+          </div>
+          缩略状态下仍能读出“细胞外壳 + 内部基因运动”。
+        </div>
+      </article>
+
+      <article class="concept">
+        <span class="tag">B · Metabolic Engine</span>
+        <div class="icon-wrap">
+          <svg viewBox="0 0 260 260" role="img" aria-label="Metabolic engine logo concept">
+            <defs>
+              <filter id="glow-green">
+                <feGaussianBlur stdDeviation="4" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <g class="gear" fill="#0b191c" stroke="rgba(232,255,247,.2)" stroke-width="4">
+              <path d="M130 24 L147 48 L176 42 L183 71 L212 83 L202 112 L222 134 L199 154 L202 184 L172 190 L155 216 L130 199 L105 216 L88 190 L58 184 L61 154 L38 134 L58 112 L48 83 L77 71 L84 42 L113 48 Z" />
+            </g>
+            <circle cx="130" cy="130" r="82" fill="rgba(157,255,77,.06)" stroke="#9dff4d" stroke-width="4" filter="url(#glow-green)" />
+            <circle class="pulse" cx="130" cy="130" r="46" fill="rgba(62,231,255,.08)" stroke="#3ee7ff" stroke-width="5" />
+            <g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M95 133 L117 111 L143 111 L166 134 L143 157 L116 157 Z" stroke="#e8fff7" />
+              <path d="M117 111 L116 157M143 111 L143 157M95 133 L70 108M166 134 L191 109M130 157 L130 194" stroke="#3ee7ff" />
+              <path d="M70 108 C78 78 101 60 130 60 C161 60 184 80 191 109" stroke="#9dff4d" />
+            </g>
+            <g fill="#081012" stroke-width="4">
+              <circle cx="70" cy="108" r="12" stroke="#ffbc42" />
+              <circle cx="191" cy="109" r="12" stroke="#ffbc42" />
+              <circle cx="130" cy="194" r="12" stroke="#ff5d73" />
+              <circle cx="117" cy="111" r="9" stroke="#3ee7ff" />
+              <circle cx="143" cy="157" r="9" stroke="#9dff4d" />
+            </g>
+          </svg>
+        </div>
+        <h2 class="wordmark">Gene<span>Machine</span></h2>
+        <p class="caption">
+          更偏“机器”的版本：外圈像齿轮，但齿不是金属件，而是突变后的细胞膜。内部节点表达能量代谢、繁殖消耗和基因联动。
+        </p>
+        <div class="mini">
+          <div class="mini-mark">
+            <svg class="small-svg" viewBox="0 0 260 260" aria-hidden="true">
+              <path d="M130 24 L147 48 L176 42 L183 71 L212 83 L202 112 L222 134 L199 154 L202 184 L172 190 L155 216 L130 199 L105 216 L88 190 L58 184 L61 154 L38 134 L58 112 L48 83 L77 71 L84 42 L113 48 Z" fill="#0b191c" stroke="#9dff4d" stroke-width="16" />
+              <path d="M95 133 L117 111 L143 111 L166 134 L143 157 L116 157 Z" fill="none" stroke="#3ee7ff" stroke-width="15" stroke-linejoin="round" />
+            </svg>
+          </div>
+          适合 Steam capsule、启动页和游戏内主菜单。
+        </div>
+      </article>
+
+      <article class="concept">
+        <span class="tag">C · Gene Circuit Mark</span>
+        <div class="icon-wrap">
+          <svg viewBox="0 0 260 260" role="img" aria-label="Gene circuit logo concept">
+            <defs>
+              <filter id="glow-amber">
+                <feGaussianBlur stdDeviation="3.8" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <rect x="44" y="44" width="172" height="172" rx="44" fill="#0b191c" stroke="rgba(232,255,247,.2)" stroke-width="4" />
+            <path d="M84 94 C84 69 103 58 127 58 L171 58 L171 94 L127 94 C115 94 108 101 108 113 L108 147 C108 159 116 166 128 166 L177 166" fill="none" stroke="#3ee7ff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-amber)" />
+            <path d="M177 166 L177 202 L130 202 C82 202 53 173 53 130 C53 96 74 71 106 61" fill="none" stroke="#9dff4d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-amber)" />
+            <path d="M92 130 L132 130 L151 112 L177 112M132 130 L151 148 L190 148" fill="none" stroke="#e8fff7" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <g fill="#081012" stroke-width="4">
+              <circle cx="92" cy="130" r="11" stroke="#ffbc42" />
+              <circle cx="151" cy="112" r="10" stroke="#3ee7ff" />
+              <circle cx="151" cy="148" r="10" stroke="#9dff4d" />
+              <circle cx="190" cy="148" r="10" stroke="#ff5d73" />
+            </g>
+            <g fill="#ffbc42">
+              <rect x="169" y="72" width="24" height="8" rx="4" />
+              <rect x="169" y="184" width="24" height="8" rx="4" />
+            </g>
+          </svg>
+        </div>
+        <h2 class="wordmark">Gene<span>Machine</span></h2>
+        <p class="caption">
+          最适合作为 App 图标的版本：用一个近似 GM 的闭合路径做主符号。线路节点让它保留“基因编辑/自动机逻辑”的识别点。
+        </p>
+        <div class="mini">
+          <div class="mini-mark">
+            <svg class="small-svg" viewBox="0 0 260 260" aria-hidden="true">
+              <rect x="44" y="44" width="172" height="172" rx="44" fill="#0b191c" stroke="#e8fff7" stroke-width="10" />
+              <path d="M84 94 C84 69 103 58 127 58 L171 58 L171 94 L127 94 C115 94 108 101 108 113 L108 147 C108 159 116 166 128 166 L177 166 L177 202 L130 202 C82 202 53 173 53 130 C53 96 74 71 106 61" fill="none" stroke="#9dff4d" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          小尺寸最稳定，后续最容易导出为 favicon 或 Unity 图标。
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>
